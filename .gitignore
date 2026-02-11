@@ -1,0 +1,12 @@
+.gradle/
+.idea/
+.DS_Store
+build/
+**/build/
+**/.gradle/
+**/.kotlin/
+*.xcworkspace
+DerivedData/
+.swiftpm/
+*.xcodeproj/xcuserdata/
+local.properties
