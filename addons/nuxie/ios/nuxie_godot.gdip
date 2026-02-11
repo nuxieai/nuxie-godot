@@ -1,0 +1,17 @@
+[config]
+name="NuxieGodot"
+binary="nuxie_godot.xcframework"
+
+initialization="nuxie_godot_init"
+deinitialization="nuxie_godot_deinit"
+
+[dependencies]
+linked=[]
+embedded=[]
+system=["StoreKit.framework", "WebKit.framework"]
+
+capabilities=[]
+
+files=[]
+
+[plist]

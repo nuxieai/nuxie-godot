@@ -1,0 +1,36 @@
+[
+  {
+    "name": "error_is_terminal",
+    "updateKind": "error",
+    "expectedTerminal": true
+  },
+  {
+    "name": "journey_is_terminal",
+    "updateKind": "journey",
+    "expectedTerminal": true
+  },
+  {
+    "name": "decision_allowed_immediate_terminal",
+    "updateKind": "decision",
+    "decisionKind": "allowedImmediate",
+    "expectedTerminal": true
+  },
+  {
+    "name": "decision_flow_shown_non_terminal",
+    "updateKind": "decision",
+    "decisionKind": "flowShown",
+    "expectedTerminal": false
+  },
+  {
+    "name": "entitlement_pending_non_terminal",
+    "updateKind": "entitlement",
+    "entitlementKind": "pending",
+    "expectedTerminal": false
+  },
+  {
+    "name": "entitlement_allowed_terminal",
+    "updateKind": "entitlement",
+    "entitlementKind": "allowed",
+    "expectedTerminal": true
+  }
+]

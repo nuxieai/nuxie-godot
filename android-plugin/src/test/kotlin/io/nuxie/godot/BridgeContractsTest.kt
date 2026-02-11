@@ -5,52 +5,45 @@ import io.nuxie.sdk.purchases.RestoreResult
 import io.nuxie.sdk.triggers.EntitlementUpdate
 import io.nuxie.sdk.triggers.GateSource
 import io.nuxie.sdk.triggers.JourneyExitReason
+import io.nuxie.sdk.triggers.JourneyRef
 import io.nuxie.sdk.triggers.JourneyUpdate
+import io.nuxie.sdk.triggers.SuppressReason
 import io.nuxie.sdk.triggers.TriggerDecision
 import io.nuxie.sdk.triggers.TriggerError
 import io.nuxie.sdk.triggers.TriggerUpdate
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.godotengine.godot.Dictionary
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BridgeContractsTest {
+  private data class TriggerFixture(
+    val name: String,
+    val updateKind: String,
+    val expectedTerminal: Boolean,
+    val decisionKind: String? = null,
+    val entitlementKind: String? = null,
+  )
+
   @Test
   fun `terminal rules match wrapper contract fixtures`() {
-    assertTrue(TriggerUpdate.Error(TriggerError("code", "message")).isTerminal())
+    val fixtures = loadFixtures()
 
-    assertTrue(
-      TriggerUpdate.Journey(
-        JourneyUpdate(
-          journeyId = "j1",
-          campaignId = "c1",
-          flowId = null,
-          exitReason = JourneyExitReason.COMPLETED,
-          goalMet = true,
-          goalMetAtEpochMillis = null,
-          durationSeconds = null,
-          flowExitReason = null,
-        ),
-      ).isTerminal(),
-    )
-
-    assertTrue(TriggerUpdate.Decision(TriggerDecision.AllowedImmediate).isTerminal())
-    assertFalse(
-      TriggerUpdate.Decision(
-        TriggerDecision.FlowShown(
-          io.nuxie.sdk.triggers.JourneyRef(
-            journeyId = "j2",
-            campaignId = "c2",
-            flowId = "f1",
-          ),
-        ),
-      ).isTerminal(),
-    )
-
-    assertFalse(TriggerUpdate.Entitlement(EntitlementUpdate.Pending).isTerminal())
-    assertTrue(TriggerUpdate.Entitlement(EntitlementUpdate.Allowed(GateSource.CACHE)).isTerminal())
-    assertTrue(TriggerUpdate.Entitlement(EntitlementUpdate.Denied).isTerminal())
+    fixtures.forEach { fixture ->
+      val update = fixture.toTriggerUpdate()
+      assertEquals(
+        "Fixture '${fixture.name}' had mismatched terminal state",
+        fixture.expectedTerminal,
+        update.isTerminal(),
+      )
+    }
   }
 
   @Test
@@ -98,5 +91,99 @@ class BridgeContractsTest {
     assertTrue(success.toRestoreResult() is RestoreResult.Success)
     assertTrue(noPurchases.toRestoreResult() is RestoreResult.NoPurchases)
     assertTrue(failed.toRestoreResult() is RestoreResult.Failed)
+  }
+
+  private fun loadFixtures(): List<TriggerFixture> {
+    val raw = checkNotNull(
+      javaClass.classLoader?.getResource("trigger_terminal_cases.json")?.readText(),
+    ) {
+      "Missing trigger_terminal_cases.json fixture"
+    }
+
+    val array = json.parseToJsonElement(raw).jsonArray
+    val fixtures = mutableListOf<TriggerFixture>()
+
+    for (entry in array) {
+      fixtures += entry.toTriggerFixture()
+    }
+
+    return fixtures
+  }
+
+  private fun TriggerFixture.toTriggerUpdate(): TriggerUpdate {
+    return when (updateKind) {
+      "error" -> TriggerUpdate.Error(TriggerError("code", "message"))
+      "journey" -> TriggerUpdate.Journey(
+        JourneyUpdate(
+          journeyId = "journey-1",
+          campaignId = "campaign-1",
+          flowId = null,
+          exitReason = JourneyExitReason.COMPLETED,
+          goalMet = true,
+          goalMetAtEpochMillis = null,
+          durationSeconds = null,
+          flowExitReason = null,
+        ),
+      )
+
+      "decision" -> TriggerUpdate.Decision(
+        when (decisionKind) {
+          "noMatch", "no_match" -> TriggerDecision.NoMatch
+          "allowedImmediate", "allowed_immediate" -> TriggerDecision.AllowedImmediate
+          "deniedImmediate", "denied_immediate" -> TriggerDecision.DeniedImmediate
+          "journeyStarted", "journey_started" -> TriggerDecision.JourneyStarted(defaultJourneyRef())
+          "journeyResumed", "journey_resumed" -> TriggerDecision.JourneyResumed(defaultJourneyRef())
+          "flowShown", "flow_shown" -> TriggerDecision.FlowShown(defaultJourneyRef())
+          else -> TriggerDecision.Suppressed(SuppressReason.AlreadyActive)
+        },
+      )
+
+      "entitlement" -> TriggerUpdate.Entitlement(
+        when (entitlementKind) {
+          "allowed" -> EntitlementUpdate.Allowed(GateSource.CACHE)
+          "denied" -> EntitlementUpdate.Denied
+          else -> EntitlementUpdate.Pending
+        },
+      )
+
+      else -> error("Unsupported fixture update kind: $updateKind")
+    }
+  }
+
+  private fun defaultJourneyRef(): JourneyRef {
+    return JourneyRef(
+      journeyId = "journey-1",
+      campaignId = "campaign-1",
+      flowId = "flow-1",
+    )
+  }
+
+  private fun kotlinx.serialization.json.JsonElement.toTriggerFixture(): TriggerFixture {
+    val objectValue = this.jsonObject
+    return TriggerFixture(
+      name = objectValue.requiredString("name"),
+      updateKind = objectValue.requiredString("updateKind"),
+      expectedTerminal = objectValue.requiredBoolean("expectedTerminal"),
+      decisionKind = objectValue.optionalString("decisionKind"),
+      entitlementKind = objectValue.optionalString("entitlementKind"),
+    )
+  }
+
+  private fun JsonObject.requiredString(key: String): String {
+    return this[key]?.jsonPrimitive?.contentOrNull
+      ?: error("Missing required string key '$key' in fixture")
+  }
+
+  private fun JsonObject.requiredBoolean(key: String): Boolean {
+    return this[key]?.jsonPrimitive?.boolean
+      ?: error("Missing required boolean key '$key' in fixture")
+  }
+
+  private fun JsonObject.optionalString(key: String): String? {
+    return this[key]?.jsonPrimitive?.contentOrNull
+  }
+
+  private val json = Json {
+    ignoreUnknownKeys = true
   }
 }
