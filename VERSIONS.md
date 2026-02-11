@@ -4,7 +4,7 @@
 
 | nuxie-godot | Android native SDK | iOS native SDK |
 | --- | --- | --- |
-| `0.1.0` | `io.nuxie:nuxie-android:0.0.1` (or local `:nuxie-android-sdk` when linked) | `nuxie-ios` `main@7b75d5042353786b597f199590ae8f6516228226` |
+| `0.2.0` | `io.nuxie:nuxie-android:0.0.1` (or local `:nuxie-android-sdk` when linked) | `nuxie-ios` `main@7b75d5042353786b597f199590ae8f6516228226` |
 
 ## Notes
 
