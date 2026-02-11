@@ -47,6 +47,8 @@ dependencies {
   } else {
     implementation("io.nuxie:nuxie-android:0.0.1")
   }
+
+  testImplementation("junit:junit:4.13.2")
 }
 
 val copyDebugAAR by tasks.registering(Copy::class) {
@@ -61,13 +63,7 @@ val copyReleaseAAR by tasks.registering(Copy::class) {
   into("../addons/nuxie/android/bin/release")
 }
 
-val copyExportTemplate by tasks.registering(Copy::class) {
-  from("export_template")
-  into("../addons/nuxie/android")
-}
-
 tasks.named("assemble") {
   finalizedBy(copyDebugAAR)
   finalizedBy(copyReleaseAAR)
-  finalizedBy(copyExportTemplate)
 }
