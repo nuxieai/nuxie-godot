@@ -941,6 +941,7 @@ private fun JourneyUpdate.toBridgeDictionary(): Dictionary {
 private fun JourneyExitReason.toBridgeValue(): String {
   return when (this) {
     JourneyExitReason.COMPLETED -> "completed"
+    JourneyExitReason.DISMISSED -> "dismissed"
     JourneyExitReason.GOAL_MET -> "goal_met"
     JourneyExitReason.TRIGGER_UNMATCHED -> "trigger_unmatched"
     JourneyExitReason.EXPIRED -> "expired"
