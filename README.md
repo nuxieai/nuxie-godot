@@ -146,6 +146,7 @@ Those actions execute in the underlying native SDKs. The host mobile projects
 still need:
 
 - iOS `Info.plist` usage-description keys for tracking/camera/microphone/photos/location
+- Android `android.permission.POST_NOTIFICATIONS` for `request_notifications`
 - Android manifest declarations for camera, microphone, photo-library, and
   location permissions used by your flows
 

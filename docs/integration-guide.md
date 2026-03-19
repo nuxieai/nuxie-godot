@@ -38,12 +38,13 @@ In your Android export preset:
 - `io.nuxie:nuxie-android:<version>`
 3. Export with the same build type as packaged AAR (`debug` vs `release`).
 
-If flows use `request_permission(...)`, the Android app manifest must also
-declare the matching dangerous permissions:
+If flows use `request_notifications` or `request_permission(...)`, the Android
+app manifest must also declare the matching dangerous permissions:
 
+- `android.permission.POST_NOTIFICATIONS` for `request_notifications`
 - `android.permission.CAMERA`
 - `android.permission.RECORD_AUDIO`
-- `android.permission.READ_MEDIA_IMAGES` on Android 13+ or
+- `android.permission.READ_MEDIA_IMAGES` on Android 13+ and
   `android.permission.READ_EXTERNAL_STORAGE` on Android 12 and below
 - `android.permission.ACCESS_COARSE_LOCATION` and/or
   `android.permission.ACCESS_FINE_LOCATION`
