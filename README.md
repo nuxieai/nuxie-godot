@@ -72,6 +72,10 @@ cp -R ios-plugin/.build/xcframework/nuxie_godot.xcframework addons/nuxie/ios/
 3. In Android export preset, ensure plugin `NuxieGodot` is enabled.
 4. In iOS export preset, include `addons/nuxie/ios/nuxie_godot.gdip` and `nuxie_godot.xcframework`.
 
+If authored flows use native permission actions, also add the matching iOS
+usage-description keys and Android manifest permissions to your exported mobile
+projects.
+
 ## Quick start (GDScript)
 
 ```gdscript
@@ -129,6 +133,22 @@ func _on_restore_requested(_request: Dictionary) -> Dictionary:
 ```
 
 The facade auto-calls `complete_purchase` / `complete_restore` with callback results.
+
+## Native permission actions
+
+No extra GDScript API is needed for:
+
+- `request_notifications`
+- `request_tracking`
+- `request_permission("camera" | "microphone" | "photos" | "location")`
+
+Those actions execute in the underlying native SDKs. The host mobile projects
+still need:
+
+- iOS `Info.plist` usage-description keys for tracking/camera/microphone/photos/location
+- Android `android.permission.POST_NOTIFICATIONS` for `request_notifications`
+- Android manifest declarations for camera, microphone, photo-library, and
+  location permissions used by your flows
 
 ## Testing and validation
 

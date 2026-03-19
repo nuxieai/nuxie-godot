@@ -70,6 +70,11 @@ Trigger `options` keys:
 | `Nuxie.use_feature(feature_id, amount := 1.0, entity_id := "", metadata := {})` | `Dictionary` |
 | `Nuxie.use_feature_and_wait(feature_id, amount := 1.0, entity_id := "", set_usage := false, metadata := {})` | `Dictionary` |
 
+`show_flow(...)` automatically supports native permission actions authored in
+flows, including notifications, tracking, camera, microphone, photos, and
+foreground location, as long as the exported mobile projects include the
+matching native plist/manifest declarations.
+
 ## Event queue methods
 
 | Method | Returns |

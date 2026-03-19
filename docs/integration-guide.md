@@ -38,6 +38,17 @@ In your Android export preset:
 - `io.nuxie:nuxie-android:<version>`
 3. Export with the same build type as packaged AAR (`debug` vs `release`).
 
+If flows use `request_notifications` or `request_permission(...)`, the Android
+app manifest must also declare the matching dangerous permissions:
+
+- `android.permission.POST_NOTIFICATIONS` for `request_notifications`
+- `android.permission.CAMERA`
+- `android.permission.RECORD_AUDIO`
+- `android.permission.READ_MEDIA_IMAGES` on Android 13+ and
+  `android.permission.READ_EXTERNAL_STORAGE` on Android 12 and below
+- `android.permission.ACCESS_COARSE_LOCATION` and/or
+  `android.permission.ACCESS_FINE_LOCATION`
+
 ## 3. Build iOS artifact
 
 From `packages/nuxie-godot`:
@@ -60,6 +71,15 @@ In your iOS export preset:
 3. Keep system frameworks required by the plugin descriptor:
 - `StoreKit.framework`
 - `WebKit.framework`
+
+If flows use `request_tracking` or `request_permission(...)`, also add the
+matching `Info.plist` usage-description keys:
+
+- `NSUserTrackingUsageDescription`
+- `NSCameraUsageDescription`
+- `NSMicrophoneUsageDescription`
+- `NSPhotoLibraryUsageDescription`
+- `NSLocationWhenInUseUsageDescription`
 
 ## 4. Runtime initialization
 
