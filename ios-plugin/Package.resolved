@@ -1,5 +1,5 @@
 {
-  "originHash" : "b0b70cd12fcb5af88bd9fdfb4f35f9a5d55c05ae27630fc05fd85d0a49b8d703",
+  "originHash" : "b0df48b973108f85451e2f1a97c19147387ca7dd03ce8dfd174bef027d5ac71f",
   "pins" : [
     {
       "identity" : "factory",
@@ -13,10 +13,10 @@
     {
       "identity" : "nuxie-ios",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/nuxieio/nuxie-ios.git",
+      "location" : "https://github.com/nuxieai/nuxie-ios.git",
       "state" : {
         "branch" : "main",
-        "revision" : "7b75d5042353786b597f199590ae8f6516228226"
+        "revision" : "fd93e7858833879aa14251668442290c82de3828"
       }
     },
     {
@@ -26,6 +26,15 @@
       "state" : {
         "branch" : "main",
         "revision" : "fad0af515a7d643a08e1ff2397039aac31dda721"
+      }
+    },
+    {
+      "identity" : "rive-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/nuxieai/rive-ios.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "0d84dc0ed8cadf7694c8d6e38a204f5fb7e5c6ad"
       }
     },
     {
