@@ -14,7 +14,7 @@ let package = Package(
     )
   ],
   dependencies: [
-    .package(url: "https://github.com/nuxieio/nuxie-ios.git", branch: "main")
+    .package(url: "https://github.com/nuxieai/nuxie-ios.git", branch: "main")
   ],
   targets: [
     .target(
