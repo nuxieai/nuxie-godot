@@ -1,0 +1,38 @@
+env:
+  CI: "1"
+
+steps:
+  - label: ":android: Godot Android bridge"
+    command: |
+      set -euo pipefail
+      export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+      export ANDROID_HOME=/opt/homebrew/share/android-commandlinetools
+      export ANDROID_SDK_ROOT="$ANDROID_HOME"
+      export PATH="$JAVA_HOME/bin:$PATH"
+      ./gradlew :android-plugin:testDebugUnitTest :android-plugin:assembleDebug :android-plugin:assembleRelease
+    agents:
+      queue: nuxie-pr
+      nuxie-platform: macos
+    timeout_in_minutes: 90
+    retry:
+      automatic:
+        - exit_status: -1
+          limit: 1
+
+  - label: ":apple: Godot iOS bridge"
+    command: |
+      set -euo pipefail
+      cd ios-plugin
+      xcodebuild test \
+        -scheme NuxieGodotBridge \
+        -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.2' \
+        -skipPackagePluginValidation
+      ./scripts/build_xcframework.sh
+    agents:
+      queue: nuxie-pr
+      nuxie-platform: macos
+    timeout_in_minutes: 120
+    retry:
+      automatic:
+        - exit_status: -1
+          limit: 1
