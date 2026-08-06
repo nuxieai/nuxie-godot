@@ -9,6 +9,12 @@ steps:
       export ANDROID_HOME=/opt/homebrew/share/android-commandlinetools
       export ANDROID_SDK_ROOT="$ANDROID_HOME"
       export PATH="$JAVA_HOME/bin:$PATH"
+      if [[ -d ../nuxie-android/.git ]]; then
+        git -C ../nuxie-android fetch origin main --depth 1
+        git -C ../nuxie-android checkout --detach FETCH_HEAD
+      else
+        git clone --depth 1 https://github.com/nuxieai/nuxie-android.git ../nuxie-android
+      fi
       ./gradlew :android-plugin:testDebugUnitTest :android-plugin:assembleDebug :android-plugin:assembleRelease
     agents:
       queue: nuxie-pr
