@@ -14,7 +14,7 @@ let package = Package(
     )
   ],
   dependencies: [
-    .package(url: "https://github.com/nuxieai/nuxie-ios.git", branch: "main")
+    .package(url: "https://github.com/nuxieai/nuxie-ios.git", exact: "0.1.0")
   ],
   targets: [
     .target(
@@ -25,10 +25,7 @@ let package = Package(
     ),
     .testTarget(
       name: "NuxieGodotBridgeTests",
-      dependencies: ["NuxieGodotBridge"],
-      resources: [
-        .process("Fixtures"),
-      ]
+      dependencies: ["NuxieGodotBridge"]
     )
   ]
 )

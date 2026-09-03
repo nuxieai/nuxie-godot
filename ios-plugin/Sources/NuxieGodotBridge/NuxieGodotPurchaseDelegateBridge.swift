@@ -1,146 +1,133 @@
 import Foundation
 @preconcurrency import Nuxie
 
-final class NuxieGodotPurchaseDelegateBridge: NuxiePurchaseDelegate {
-  private struct PendingPurchase {
-    let productId: String
-    let continuation: CheckedContinuation<PurchaseOutcome, Never>
-  }
-
+final class NuxieGodotPurchaseDelegateBridge: NuxiePurchaseDelegate, @unchecked Sendable {
   private let emit: (String, [String: Any]) -> Void
+  private let timeoutSeconds: TimeInterval
   private let lock = NSLock()
-
-  var timeoutSeconds: TimeInterval = 60
-
-  private var purchaseContinuations: [String: PendingPurchase] = [:]
+  private var purchaseContinuations: [String: CheckedContinuation<PurchaseResult, Never>] = [:]
   private var restoreContinuations: [String: CheckedContinuation<RestoreResult, Never>] = [:]
 
-  init(emit: @escaping (String, [String: Any]) -> Void) {
+  init(
+    timeoutSeconds: TimeInterval = 60,
+    emit: @escaping (String, [String: Any]) -> Void
+  ) {
+    self.timeoutSeconds = timeoutSeconds
     self.emit = emit
   }
 
-  func purchase(_ product: any StoreProductProtocol) async -> PurchaseResult {
-    await purchaseOutcome(product).result
-  }
-
-  func purchaseOutcome(_ product: any StoreProductProtocol) async -> PurchaseOutcome {
+  func purchase(product: StoreProduct) async -> PurchaseResult {
     let requestId = UUID().uuidString
     let payload: [String: Any] = [
-      "requestId": requestId,
+      "request_id": requestId,
       "platform": "ios",
-      "productId": product.id,
-      "displayName": product.displayName,
-      "displayPrice": product.displayPrice,
-      "price": NSDecimalNumber(decimal: product.price).doubleValue,
-      "timestampMs": bridgeNowMs(),
+      "product_id": product.productId,
+      "store_product_id": product.storeProductId,
+      "base_plan_id": NSNull(),
+      "purchase_option_id": NSNull(),
+      "offer_id": NSNull(),
+      "placement_id": product.placementId,
+      "display_name": product.name,
+      "display_price": product.price,
+      "timestamp_ms": bridgeNowMs(),
     ]
 
     return await withCheckedContinuation { continuation in
       lock.withLock {
-        purchaseContinuations[requestId] = PendingPurchase(productId: product.id, continuation: continuation)
+        purchaseContinuations[requestId] = continuation
       }
-
       emit("purchase_request", payload)
       schedulePurchaseTimeout(requestId: requestId)
     }
   }
 
-  func restore() async -> RestoreResult {
+  func restorePurchases() async -> RestoreResult {
     let requestId = UUID().uuidString
     let payload: [String: Any] = [
-      "requestId": requestId,
+      "request_id": requestId,
       "platform": "ios",
-      "timestampMs": bridgeNowMs(),
+      "timestamp_ms": bridgeNowMs(),
     ]
 
     return await withCheckedContinuation { continuation in
       lock.withLock {
         restoreContinuations[requestId] = continuation
       }
-
       emit("restore_request", payload)
       scheduleRestoreTimeout(requestId: requestId)
     }
   }
 
-  @discardableResult
-  func completePurchase(requestId: String, payload: [String: Any]) -> Bool {
-    let pending = lock.withLock {
+  func completePurchase(requestId: String, payload: [String: Any]) {
+    let continuation = lock.withLock {
       purchaseContinuations.removeValue(forKey: requestId)
     }
-
-    guard let pending else { return false }
-    pending.continuation.resume(returning: payload.toPurchaseOutcome(defaultProductId: pending.productId))
-    return true
+    continuation?.resume(returning: purchaseResult(from: payload))
   }
 
-  @discardableResult
-  func completeRestore(requestId: String, payload: [String: Any]) -> Bool {
+  func completeRestore(requestId: String, payload: [String: Any]) {
     let continuation = lock.withLock {
       restoreContinuations.removeValue(forKey: requestId)
     }
-
-    guard let continuation else { return false }
-    continuation.resume(returning: payload.toRestoreResult())
-    return true
+    continuation?.resume(returning: restoreResult(from: payload))
   }
 
-  func clearPending(reason: String) {
-    let snapshots = lock.withLock {
-      let pendingPurchases = Array(purchaseContinuations.values)
-      let pendingRestores = Array(restoreContinuations.values)
+  func cancelPending(reason: String) {
+    let (purchases, restores) = lock.withLock {
+      let purchases = Array(purchaseContinuations.values)
+      let restores = Array(restoreContinuations.values)
       purchaseContinuations.removeAll()
       restoreContinuations.removeAll()
-      return (pendingPurchases, pendingRestores)
+      return (purchases, restores)
     }
-
-    for pending in snapshots.0 {
-      let outcome = PurchaseOutcome(
-        result: .failed(nuxieBridgeError(reason)),
-        productId: pending.productId
-      )
-      pending.continuation.resume(returning: outcome)
-    }
-
-    for continuation in snapshots.1 {
-      continuation.resume(returning: .failed(nuxieBridgeError(reason)))
-    }
+    purchases.forEach { $0.resume(returning: .failed(bridgeError(reason))) }
+    restores.forEach { $0.resume(returning: .failed(bridgeError(reason))) }
   }
 
   private func schedulePurchaseTimeout(requestId: String) {
-    let timeout = timeoutSeconds
-    DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + timeout) { [weak self] in
+    Task { [weak self] in
       guard let self else { return }
-
-      let pending = self.lock.withLock {
+      try? await Task.sleep(nanoseconds: UInt64(self.timeoutSeconds * 1_000_000_000))
+      let continuation = self.lock.withLock {
         self.purchaseContinuations.removeValue(forKey: requestId)
       }
-
-      guard let pending else { return }
-      pending.continuation.resume(
-        returning: PurchaseOutcome(
-          result: .failed(self.nuxieBridgeError("purchase_timeout")),
-          productId: pending.productId
-        )
-      )
+      continuation?.resume(returning: .failed(self.bridgeError("purchase_timeout")))
     }
   }
 
   private func scheduleRestoreTimeout(requestId: String) {
-    let timeout = timeoutSeconds
-    DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + timeout) { [weak self] in
+    Task { [weak self] in
       guard let self else { return }
-
+      try? await Task.sleep(nanoseconds: UInt64(self.timeoutSeconds * 1_000_000_000))
       let continuation = self.lock.withLock {
         self.restoreContinuations.removeValue(forKey: requestId)
       }
-
-      guard let continuation else { return }
-      continuation.resume(returning: .failed(self.nuxieBridgeError("restore_timeout")))
+      continuation?.resume(returning: .failed(self.bridgeError("restore_timeout")))
     }
   }
 
-  private func nuxieBridgeError(_ message: String) -> Error {
-    NSError(domain: "io.nuxie.godot", code: 1, userInfo: [NSLocalizedDescriptionKey: message])
+  private func purchaseResult(from payload: [String: Any]) -> PurchaseResult {
+    switch (payload["type"] as? String)?.lowercased() {
+    case "purchased": .purchased
+    case "cancelled": .cancelled
+    case "pending": .pending
+    default: .failed(bridgeError((payload["message"] as? String) ?? "purchase_failed"))
+    }
+  }
+
+  private func restoreResult(from payload: [String: Any]) -> RestoreResult {
+    switch (payload["type"] as? String)?.lowercased() {
+    case "restored": .restored
+    case "no_purchases": .noPurchases
+    default: .failed(bridgeError((payload["message"] as? String) ?? "restore_failed"))
+    }
+  }
+
+  private func bridgeError(_ message: String) -> Error {
+    NSError(
+      domain: "ai.nuxie.godot",
+      code: 1,
+      userInfo: [NSLocalizedDescriptionKey: message]
+    )
   }
 }

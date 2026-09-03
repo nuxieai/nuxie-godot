@@ -12,3 +12,6 @@ DerivedData/
 **/.build/
 *.xcodeproj/xcuserdata/
 local.properties
+.godot/
+*.gd.uid
+addons/nuxie/android/bin/**/*.aar

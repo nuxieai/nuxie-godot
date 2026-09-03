@@ -15,6 +15,7 @@ pluginManagement {
 dependencyResolutionManagement {
   repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
   repositories {
+    providers.environmentVariable("NUXIE_ANDROID_MAVEN_REPO").orNull?.let { maven(url = uri(it)) }
     google()
     mavenCentral()
   }
@@ -23,12 +24,3 @@ dependencyResolutionManagement {
 rootProject.name = "nuxie-godot"
 
 include(":android-plugin")
-
-val localNuxieAndroid = file("../nuxie-android")
-if (localNuxieAndroid.exists()) {
-  include(":nuxie-core")
-  project(":nuxie-core").projectDir = file("../nuxie-android/nuxie-core")
-
-  include(":nuxie-android-sdk")
-  project(":nuxie-android-sdk").projectDir = file("../nuxie-android/nuxie-android")
-}

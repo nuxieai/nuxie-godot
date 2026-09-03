@@ -17,5 +17,5 @@ func _get_android_libraries(_platform, debug: bool) -> PackedStringArray:
 func _get_android_dependencies(_platform, _debug: bool) -> PackedStringArray:
   return PackedStringArray([
     "org.godotengine:godot:4.5.1.stable",
-    "io.nuxie:nuxie-android:0.0.1",
+    "ai.nuxie:nuxie-android:0.1.0",
   ])

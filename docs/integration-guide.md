@@ -1,124 +1,111 @@
 # Nuxie Godot Integration Guide
 
-This guide covers installing the plugin, producing native artifacts, and configuring Godot export presets.
+## Install the facade
 
-## 1. Copy plugin files into your game
-
-Copy `addons/nuxie` from this repository into your Godot project:
+Copy `addons/nuxie` into the game and enable `Nuxie` under **Project Settings → Plugins**.
 
 ```bash
-cp -R addons/nuxie /path/to/your-godot-project/addons/
+cp -R addons/nuxie /path/to/game/addons/
 ```
 
-In Godot editor:
+## Android
 
-1. Open `Project Settings -> Plugins`.
-2. Enable plugin `Nuxie`.
-
-## 2. Build Android artifact
-
-From `packages/nuxie-godot`:
+Build the plugin with JDK 17 and an Android SDK:
 
 ```bash
-./gradlew :android-plugin:assemble
+./gradlew :android-plugin:testDebugUnitTest \
+  :android-plugin:assembleDebug \
+  :android-plugin:assembleRelease
 ```
 
-This generates and copies:
+The build copies these files into the addon:
 
 - `addons/nuxie/android/bin/debug/NuxieGodot-debug.aar`
 - `addons/nuxie/android/bin/release/NuxieGodot-release.aar`
 
-### Android export preset
+The export plugin declares exact dependencies on Godot `4.5.1.stable` and `ai.nuxie:nuxie-android:0.1.0`. Enable `NuxieGodot` in the Android export preset and use the matching debug or release artifact.
 
-In your Android export preset:
+For local native SDK validation, point `NUXIE_ANDROID_MAVEN_REPO` at a Maven repository containing `ai.nuxie:nuxie-android:0.1.0`.
 
-1. Ensure plugin `NuxieGodot` is enabled.
-2. Confirm gradle dependencies include:
-- `org.godotengine:godot:4.5.1.stable`
-- `io.nuxie:nuxie-android:<version>`
-3. Export with the same build type as packaged AAR (`debug` vs `release`).
+## iOS
 
-If flows use `request_notifications` or `request_permission(...)`, the Android
-app manifest must also declare the matching dangerous permissions:
+The iOS export contains two artifacts:
 
-- `android.permission.POST_NOTIFICATIONS` for `request_notifications`
-- `android.permission.CAMERA`
-- `android.permission.RECORD_AUDIO`
-- `android.permission.READ_MEDIA_IMAGES` on Android 13+ and
-  `android.permission.READ_EXTERNAL_STORAGE` on Android 12 and below
-- `android.permission.ACCESS_COARSE_LOCATION` and/or
-  `android.permission.ACCESS_FINE_LOCATION`
+- `nuxie_godot_plugin.xcframework`: static C++ plugin that registers the `NuxieGodot` Godot singleton.
+- `NuxieGodotBridge.xcframework`: embedded Swift framework containing the bridge, native SDK, runtime, and SDK resources.
 
-## 3. Build iOS artifact
-
-From `packages/nuxie-godot`:
+Build them with Xcode, SCons, and a Godot 4.5.x source checkout:
 
 ```bash
-./ios-plugin/scripts/build_xcframework.sh
-cp -R ios-plugin/.build/xcframework/nuxie_godot.xcframework addons/nuxie/ios/
+GODOT_SOURCE_DIR=/path/to/godot-4.5.1 \
+  ./ios-plugin/scripts/build_xcframework.sh
+
+cp -R ios-plugin/.build/xcframework/nuxie_godot_plugin.xcframework addons/nuxie/ios/
+cp -R ios-plugin/.build/xcframework/NuxieGodotBridge.xcframework addons/nuxie/ios/
 ```
 
-The plugin descriptor at `addons/nuxie/ios/nuxie_godot.gdip` expects the binary name:
+Keep both XCFrameworks next to `addons/nuxie/ios/nuxie_godot.gdip`. The descriptor links the static plugin, embeds the Swift framework, enables the Swift runtime, and links StoreKit and WebKit.
 
-- `nuxie_godot.xcframework`
+Enable `NuxieGodot` in the iOS export preset. A successful device launch makes `Engine.has_singleton("NuxieGodot")` return `true`.
 
-### iOS export preset
-
-In your iOS export preset:
-
-1. Ensure plugin descriptor `addons/nuxie/ios/nuxie_godot.gdip` is active.
-2. Ensure `nuxie_godot.xcframework` is present next to the `.gdip` file.
-3. Keep system frameworks required by the plugin descriptor:
-- `StoreKit.framework`
-- `WebKit.framework`
-
-If flows use `request_tracking` or `request_permission(...)`, also add the
-matching `Info.plist` usage-description keys:
-
-- `NSUserTrackingUsageDescription`
-- `NSCameraUsageDescription`
-- `NSMicrophoneUsageDescription`
-- `NSPhotoLibraryUsageDescription`
-- `NSLocationWhenInUseUsageDescription`
-
-## 4. Runtime initialization
-
-Use the static facade from your game scripts:
+## Configure at runtime
 
 ```gdscript
 if not Nuxie.is_available():
   push_error("Nuxie bridge unavailable")
   return
 
-var op := await Nuxie.configure("nuxie_public_api_key", {
+var configured := await Nuxie.configure("nuxie_public_api_key", {
   "environment": "production",
+  "log_level": "warning",
+  "locale_identifier": null,
+  "purchase_handling_mode": "full",
 })
-if not op.ok:
-  push_error("Nuxie configure failed: %s" % [op.error])
+
+if not configured.ok:
+  push_error("Nuxie configure failed: %s" % [configured.error])
+  return
+
+Nuxie.trigger("game_opened", {"source": "launch"})
 ```
 
-## 5. Purchase bridge wiring (optional)
+Identity changes update native SDK state. Profile synchronization follows the native SDK lifecycle and occurs at launch and foreground sync points.
 
-If you use custom store handling, register callbacks before `configure(..., use_purchase_controller=true)`:
+## App actions
+
+Journeys can ask the host app to perform a typed action:
 
 ```gdscript
-Nuxie.set_purchase_controller(_on_purchase, _on_restore)
-await Nuxie.configure("key", {}, true)
+Nuxie.on("app_action", func(action: Dictionary) -> void:
+  match action.name:
+    "open_inventory": _open_inventory(action.payload)
+    _: push_warning("Unhandled Nuxie app action: %s" % action.name)
+)
 ```
 
-Callback return payloads must follow contract documented in `docs/api-reference.md`.
+Add any platform permissions and usage descriptions required by actions your game implements.
 
-## 6. Verification checklist
+## App-managed purchases
 
-- `Nuxie.is_available()` returns `true` on device runtime.
-- `configure` emits successful `operation_result`.
-- `trigger` receives progressive `trigger_update` events.
-- `trigger_once` returns terminal update.
-- Feature checks and profile refresh return data in `result`.
-- Purchase/restore requests are emitted and completion methods resolve native continuations.
+Set callbacks before configuration:
 
-## 7. Common issues
+```gdscript
+Nuxie.set_purchase_controller(_purchase, _restore)
+var configured := await Nuxie.configure("nuxie_public_api_key", {
+  "purchase_handling_mode": "observer",
+}, true)
+```
 
-- `NATIVE_SDK_UNAVAILABLE`: native plugin is not enabled in export preset or artifacts were not copied.
-- iOS symbol/link issues: XCFramework not present at `addons/nuxie/ios/nuxie_godot.xcframework`.
-- Android class not found: AAR missing in `addons/nuxie/android/bin/...` or plugin not enabled in export preset.
+The callback contracts are documented in `docs/api-reference.md`. Both callbacks may return immediately or suspend.
+
+## Verification
+
+- `Nuxie.is_available()` is `true` in an exported mobile build.
+- `configure` resolves with `ok == true`.
+- `trigger` returns immediately and matching Journeys present through the native SDK.
+- `has_feature` honors both cache-first and remote policies.
+- `use_feature_and_wait` includes `authoritativeAccess` when the server supplies it.
+- `activity` and `app_action` callbacks preserve typed property values.
+- App-managed purchase and restore callbacks resolve their native continuations.
+
+If `NATIVE_SDK_UNAVAILABLE` is reported, verify that the platform artifact and export plugin are enabled. On iOS, verify that both XCFrameworks are present beside the `.gdip` file.
