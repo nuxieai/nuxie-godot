@@ -16,7 +16,7 @@ final class BridgeRuntimeTests: XCTestCase {
       return
     }
 
-    XCTAssertEqual(error["code"] as? String, "INVALID_CONFIGURATION")
+    XCTAssertEqual(error["code"] as? String, "INVALID_ARGUMENTS")
   }
 
   func testConfigureWithMissingApiKeyEmitsOperationResultEvent() {

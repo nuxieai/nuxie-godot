@@ -1,146 +1,162 @@
 # Nuxie Godot API Reference
 
-This document describes the public GDScript surface in `addons/nuxie/nuxie.gd` and the normalized event/payload contract emitted by native bridges.
+The public API is the static `Nuxie` facade in `addons/nuxie/nuxie.gd`. Android and iOS both expose the native engine singleton as `NuxieGodot`.
 
-## Facade class
+## Operation results
 
-- Class: `Nuxie`
-- Type: static facade (`class_name Nuxie`)
-- Native singleton target: `NuxieGodot`
-
-## Return shape for async operations
-
-Most async methods resolve to:
+Awaitable methods resolve to this shape:
 
 ```gdscript
 {
   "ok": bool,
   "result": Dictionary,
-  "error": Dictionary # { code, message, nativeStack? }
+  "error": Dictionary, # { code, message, nativeStack? }
 }
 ```
 
-## Core methods
+The bridge uses request IDs and native operation events internally. They are transport details and are not part of the public subscription API.
 
-| Method | Returns | Notes |
+## Lifecycle and identity
+
+| Method | Return | Behavior |
 | --- | --- | --- |
-| `Nuxie.is_available()` | `bool` | Checks native singleton availability. |
-| `Nuxie.set_purchase_controller(on_purchase, on_restore)` | `void` | Registers optional purchase/restore handlers. |
-| `Nuxie.on(event_name, callback)` | `void` | Subscribes to facade event stream. |
-| `Nuxie.off(event_name, callback)` | `void` | Unsubscribes callback. |
-| `Nuxie.configure(api_key, options := {}, use_purchase_controller := false)` | `Dictionary` | Initializes native SDK. |
-| `Nuxie.shutdown()` | `Dictionary` | Shuts down SDK and clears pending state. |
+| `Nuxie.is_available()` | `bool` | Reports whether the native singleton is present. |
+| `Nuxie.configure(api_key, options := {}, use_purchase_controller := false)` | `Dictionary` | Configures the native SDK. |
+| `Nuxie.shutdown()` | `Dictionary` | Shuts down the native SDK and rejects pending wrapper operations. |
+| `Nuxie.identify(distinct_id, user_properties := {}, user_properties_set_once := {})` | `Dictionary` | Updates local identity and properties. |
+| `Nuxie.reset(keep_anonymous_id := false)` | `Dictionary` | Resets identity. The breaking-change default is `false`. |
+| `Nuxie.get_distinct_id()` | `String` | Returns the current distinct ID or `""` on error. |
+| `Nuxie.get_anonymous_id()` | `String` | Returns the current anonymous ID or `""` on error. |
+| `Nuxie.get_is_identified()` | `bool` | Reports whether the current identity is identified. |
+| `Nuxie.dismiss()` | `Dictionary` | Dismisses the currently presented experience. |
+| `Nuxie.set_locale_identifier(locale_identifier := null)` | `Dictionary` | Sets an explicit locale or clears the override with `null`. |
 
-## Identity methods
+## Journey events
 
-| Method | Returns |
-| --- | --- |
-| `Nuxie.identify(distinct_id, user_properties := {}, user_properties_set_once := {})` | `Dictionary` |
-| `Nuxie.reset(keep_anonymous_id := true)` | `Dictionary` |
-| `Nuxie.get_distinct_id()` | `String` |
-| `Nuxie.get_anonymous_id()` | `String` |
-| `Nuxie.get_is_identified()` | `bool` |
+```gdscript
+Nuxie.trigger("level_completed", {
+  "level": 7,
+  "score": 4200,
+})
+```
 
-`get_*` helpers return fallback values on error and emit normalized engine errors through `NuxieErrors.emit`.
+`Nuxie.trigger(event_name, properties := {}) -> void` records the event. Any matching Journey evaluates asynchronously in the native SDK, and Journey evaluation always remains enabled.
 
-## Trigger methods
+## Feature access
 
-| Method | Returns | Notes |
+Policy constants:
+
+- `Nuxie.FEATURE_POLICY_CACHE_FIRST`
+- `Nuxie.FEATURE_POLICY_REMOTE`
+
+| Method | Return | Behavior |
 | --- | --- | --- |
-| `Nuxie.trigger(event_name, options := {})` | `NuxieTriggerOperation` | Starts progressive trigger stream. |
-| `Nuxie.trigger_once(event_name, options := {}, timeout_ms := 0)` | `Dictionary` | Waits for terminal trigger update. |
-| `Nuxie.cancel_trigger(request_id)` | `void` | Cancels in-flight native trigger handle. |
+| `Nuxie.has_feature(feature_id, required_balance := 1.0, entity_id := "", policy := FEATURE_POLICY_CACHE_FIRST)` | `Dictionary` | Resolves feature access under the selected policy. |
+| `Nuxie.use_feature(feature_id, amount := 1.0, entity_id := "", metadata := {})` | `void` | Records use without waiting for server confirmation. |
+| `Nuxie.use_feature_and_wait(feature_id, amount := 1.0, entity_id := "", set_usage := false, metadata := {})` | `Dictionary` | Resolves after the server returns the authoritative usage result. |
 
-Trigger `options` keys:
-
-- `properties: Dictionary`
-- `userProperties: Dictionary`
-- `userPropertiesSetOnce: Dictionary`
-
-## Flow, profile, and feature methods
-
-| Method | Returns |
-| --- | --- |
-| `Nuxie.show_flow(flow_id)` | `Dictionary` |
-| `Nuxie.refresh_profile()` | `Dictionary` |
-| `Nuxie.has_feature(feature_id, required_balance := -1, entity_id := "")` | `Dictionary` |
-| `Nuxie.get_cached_feature(feature_id, entity_id := "")` | `Dictionary` |
-| `Nuxie.check_feature(feature_id, required_balance := -1, entity_id := "")` | `Dictionary` |
-| `Nuxie.refresh_feature(feature_id, required_balance := -1, entity_id := "")` | `Dictionary` |
-| `Nuxie.use_feature(feature_id, amount := 1.0, entity_id := "", metadata := {})` | `Dictionary` |
-| `Nuxie.use_feature_and_wait(feature_id, amount := 1.0, entity_id := "", set_usage := false, metadata := {})` | `Dictionary` |
-
-`show_flow(...)` automatically supports native permission actions authored in
-flows, including notifications, tracking, camera, microphone, photos, and
-foreground location, as long as the exported mobile projects include the
-matching native plist/manifest declarations.
-
-## Event queue methods
-
-| Method | Returns |
-| --- | --- |
-| `Nuxie.flush_events()` | `Dictionary` |
-| `Nuxie.get_queued_event_count()` | `Dictionary` |
-| `Nuxie.pause_event_queue()` | `Dictionary` |
-| `Nuxie.resume_event_queue()` | `Dictionary` |
-
-## Purchase/restore completion methods
-
-| Method | Returns |
-| --- | --- |
-| `Nuxie.complete_purchase(request_id, result)` | `Dictionary` |
-| `Nuxie.complete_restore(request_id, result)` | `Dictionary` |
-
-## Emitted events
-
-The facade emits callbacks registered with `Nuxie.on(...)`.
-
-### `operation_result`
+Feature access result:
 
 ```gdscript
 {
-  "requestId": String,
-  "method": String,
-  "ok": bool,
-  "result": Dictionary,
-  "error": Dictionary,
-  "timestampMs": int
+  "allowed": bool,
+  "unlimited": bool,
+  "balance": float | null,
+  "type": "boolean" | "metered" | "creditSystem",
 }
 ```
 
-### `trigger_update`
+Authoritative usage result:
 
 ```gdscript
 {
-  "requestId": String,
-  "update": Dictionary,
-  "isTerminal": bool,
-  "timestampMs": int
+  "success": bool,
+  "featureId": String,
+  "amountUsed": float,
+  "message": String | null,
+  "usage": {
+    "current": float,
+    "limit": float | null,
+    "remaining": float | null,
+  } | null,
+  "authoritativeAccess": Dictionary | null,
 }
 ```
+
+## Public events
+
+Subscribe and unsubscribe with:
+
+```gdscript
+Nuxie.on("activity", callback)
+Nuxie.off("activity", callback)
+```
+
+The only public event names are:
+
+- `feature_access_changed`
+- `activity`
+- `app_action`
+- `purchase_request`
+- `restore_request`
 
 ### `feature_access_changed`
 
 ```gdscript
 {
   "featureId": String,
-  "from": Dictionary,
+  "from": Dictionary | null,
   "to": Dictionary,
-  "timestampMs": int
+  "timestampMs": int,
 }
 ```
+
+### `activity`
+
+```gdscript
+{
+  "schemaVersion": int,
+  "id": String,
+  "timestampMs": int,
+  "receivedAtMs": int,
+  "name": String,
+  "properties": Dictionary,
+}
+```
+
+Activity property values are strings, integers, floats, or booleans.
+
+### `app_action`
+
+```gdscript
+{
+  "name": String,
+  "payload": Dictionary | null,
+  "experience": {
+    "experienceId": String,
+    "experienceVersion": String | null,
+    "journeyId": String | null,
+  },
+}
+```
+
+App action payload values are strings, integers, floats, or booleans.
 
 ### `purchase_request`
 
 ```gdscript
 {
-  "requestId": String,
-  "platform": "ios" | "android",
-  "productId": String, # purchase only
-  "displayName": String, # optional
-  "displayPrice": String, # optional
-  "price": float, # optional
-  "timestampMs": int
+  "request_id": String,
+  "platform": "android" | "ios",
+  "product_id": String,
+  "store_product_id": String,
+  "base_plan_id": String | null,
+  "purchase_option_id": String | null,
+  "offer_id": String | null,
+  "placement_id": String | null,
+  "display_name": String | null,
+  "display_price": String | null,
+  "timestamp_ms": int,
 }
 ```
 
@@ -148,118 +164,50 @@ The facade emits callbacks registered with `Nuxie.on(...)`.
 
 ```gdscript
 {
-  "requestId": String,
-  "platform": "ios" | "android",
-  "timestampMs": int
+  "request_id": String,
+  "platform": "android" | "ios",
+  "timestamp_ms": int,
 }
 ```
 
-### `flow_lifecycle`
+## App-managed purchase completion
+
+`Nuxie.set_purchase_controller(on_purchase := Callable(), on_restore := Callable())` stores optional synchronous or asynchronous callbacks. The facade invokes them for native requests and completes the native continuation automatically.
+
+Purchase callback results:
 
 ```gdscript
-{
-  "type": String,
-  "timestampMs": int,
-  "flowId": String, # optional
-  "reason": String, # optional
-  "payload": Dictionary # optional, event-specific fields
-}
+{"type": "purchased"}
+{"type": "cancelled"}
+{"type": "pending"}
+{"type": "failed", "message": "reason"}
 ```
 
-## Trigger update contract
-
-Update kinds:
-
-- `decision`
-- `entitlement`
-- `journey`
-- `error`
-
-Decision `type` values:
-
-- `no_match`
-- `allowed_immediate`
-- `denied_immediate`
-- `journey_started`
-- `journey_resumed`
-- `flow_shown`
-- `suppressed`
-
-Entitlement `type` values:
-
-- `pending`
-- `allowed`
-- `denied`
-
-Terminal rules:
-
-- Terminal:
-- `error`
-- `journey`
-- `decision.no_match`
-- `decision.allowed_immediate`
-- `decision.denied_immediate`
-- `decision.suppressed`
-- `entitlement.allowed`
-- `entitlement.denied`
-- Non-terminal:
-- `decision.journey_started`
-- `decision.journey_resumed`
-- `decision.flow_shown`
-- `entitlement.pending`
-
-## Purchase/restore completion payloads
-
-Purchase completion payload (`Nuxie.complete_purchase`):
+Restore callback results:
 
 ```gdscript
-{ "type": "success", "productId": "pro_monthly", ... }
-{ "type": "cancelled" }
-{ "type": "pending" }
-{ "type": "failed", "message": "purchase_failed_reason" }
+{"type": "restored"}
+{"type": "no_purchases"}
+{"type": "failed", "message": "reason"}
 ```
 
-Restore completion payload (`Nuxie.complete_restore`):
+Manual completion methods are also available for event-based hosts:
 
-```gdscript
-{ "type": "success", "restoredCount": 2 }
-{ "type": "no_purchases" }
-{ "type": "failed", "message": "restore_failed_reason" }
-```
+- `Nuxie.complete_purchase(request_id, result) -> void`
+- `Nuxie.complete_restore(request_id, result) -> void`
 
-## Configure option keys
+## Configuration
 
-`Nuxie.configure(api_key, options, ...)` supports these keys:
+`options` accepts the same compact keys on Android and iOS:
 
-- `environment`: `production | staging | development | custom`
-- `apiEndpoint`
-- `logLevel`: `verbose | debug | info | warning | error | none`
-- `enableConsoleLogging`
-- `enableFileLogging`
-- `redactSensitiveData`
-- `requestTimeoutSeconds`
-- `retryCount`
-- `retryDelaySeconds`
-- `syncIntervalSeconds`
-- `enableCompression`
-- `eventBatchSize`
-- `flushAt`
-- `flushIntervalSeconds`
-- `maxQueueSize`
-- `maxCacheSizeBytes`
-- `cacheExpirationSeconds`
-- `enableEncryption`
-- `featureCacheTtlSeconds`
-- `defaultPaywallTimeoutSeconds`
-- `respectDoNotTrack`
-- `localeIdentifier`
-- `isDebugMode`
-- `enablePlugins`
-- `maxFlowCacheSizeBytes`
-- `flowCacheExpirationSeconds`
-- `maxConcurrentFlowDownloads`
-- `flowDownloadTimeoutSeconds`
-- `customStoragePath`
-- `flowCacheDirectory`
-- `eventLinkingPolicy`: `keep_separate | keepSeparate | migrate_on_identify(default)`
-- `purchaseTimeoutSeconds`
+| Key | Values | Default |
+| --- | --- | --- |
+| `environment` | `"production"`, `"development"` | `"production"` |
+| `log_level` | `"verbose"`, `"debug"`, `"info"`, `"warning"`, `"error"`, `"none"` | `"warning"` |
+| `enable_console_logging` | `bool` | Native default; iOS only |
+| `redact_sensitive_data` | `bool` | Native default; iOS only |
+| `locale_identifier` | locale string or `null` | system locale |
+| `purchase_handling_mode` | `"full"`, `"observer"` | `"full"` |
+| `test_store_enabled` | `bool` | `false`; iOS development builds only |
+
+Set `use_purchase_controller` to `true` only when callbacks have been registered. The wrapper also enables it automatically when either callback is valid. Purchase delegation does not change transaction ownership; select `observer` explicitly when the app or another billing SDK owns transaction finishing.

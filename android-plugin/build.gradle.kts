@@ -6,18 +6,18 @@ plugins {
 }
 
 val pluginName = "NuxieGodot"
-val pluginPackageName = "io.nuxie.godot"
+val pluginPackageName = "ai.nuxie.godot"
 
 android {
   namespace = pluginPackageName
-  compileSdk = 34
+  compileSdk = 36
 
   buildFeatures {
     buildConfig = true
   }
 
   defaultConfig {
-    minSdk = 21
+    minSdk = 23
 
     manifestPlaceholders["godotPluginName"] = pluginName
     manifestPlaceholders["godotPluginPackageName"] = pluginPackageName
@@ -41,12 +41,7 @@ dependencies {
   implementation("org.godotengine:godot:4.5.1.stable")
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
-  val localSdk = project.findProject(":nuxie-android-sdk")
-  if (localSdk != null) {
-    implementation(localSdk)
-  } else {
-    implementation("io.nuxie:nuxie-android:0.0.1")
-  }
+  implementation("ai.nuxie:nuxie-android:0.1.0")
 
   testImplementation("junit:junit:4.13.2")
 }
@@ -66,4 +61,11 @@ val copyReleaseAAR by tasks.registering(Copy::class) {
 tasks.named("assemble") {
   finalizedBy(copyDebugAAR)
   finalizedBy(copyReleaseAAR)
+}
+
+tasks.configureEach {
+  when (name) {
+    "assembleDebug" -> finalizedBy(copyDebugAAR)
+    "assembleRelease" -> finalizedBy(copyReleaseAAR)
+  }
 }

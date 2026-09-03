@@ -1,13 +1,14 @@
 [config]
 name="NuxieGodot"
-binary="nuxie_godot.xcframework"
+binary="nuxie_godot_plugin.xcframework"
+use_swift_runtime=true
 
 initialization="nuxie_godot_init"
 deinitialization="nuxie_godot_deinit"
 
 [dependencies]
 linked=[]
-embedded=[]
+embedded=["NuxieGodotBridge.xcframework"]
 system=["StoreKit.framework", "WebKit.framework"]
 
 capabilities=[]
