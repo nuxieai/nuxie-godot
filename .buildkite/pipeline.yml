@@ -15,6 +15,7 @@ steps:
       else
         git clone --depth 1 https://github.com/nuxieai/nuxie-android.git ../nuxie-android
       fi
+      export NUXIE_ANDROID_SOURCE_DIR="$(cd ../nuxie-android && pwd)"
       ./gradlew :android-plugin:testDebugUnitTest :android-plugin:assembleDebug :android-plugin:assembleRelease
     agents:
       queue: nuxie-pr
@@ -28,6 +29,13 @@ steps:
   - label: ":apple: Godot iOS bridge"
     command: |
       set -euo pipefail
+      if [[ -d ../godot-4.5.1/.git ]]; then
+        git -C ../godot-4.5.1 fetch origin refs/tags/4.5.1-stable --depth 1
+        git -C ../godot-4.5.1 checkout --detach FETCH_HEAD
+      else
+        git clone --depth 1 --branch 4.5.1-stable https://github.com/godotengine/godot.git ../godot-4.5.1
+      fi
+      export GODOT_SOURCE_DIR="$(cd ../godot-4.5.1 && pwd)"
       cd ios-plugin
       xcodebuild test \
         -scheme NuxieGodotBridge \

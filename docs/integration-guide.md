@@ -25,7 +25,7 @@ The build copies these files into the addon:
 
 The export plugin declares exact dependencies on Godot `4.5.1.stable` and `ai.nuxie:nuxie-android:0.1.0`. Enable `NuxieGodot` in the Android export preset and use the matching debug or release artifact.
 
-For local native SDK validation, point `NUXIE_ANDROID_MAVEN_REPO` at a Maven repository containing `ai.nuxie:nuxie-android:0.1.0`.
+For local native SDK validation, point `NUXIE_ANDROID_MAVEN_REPO` at a Maven repository containing `ai.nuxie:nuxie-android:0.1.0`, or set `NUXIE_ANDROID_SOURCE_DIR` to the exact Android SDK checkout to substitute as a composite build.
 
 ## iOS
 

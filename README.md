@@ -11,7 +11,7 @@ Godot 4.5 plugin for Nuxie on Android and iOS. It wraps the native Nuxie SDKs an
 - `addons/nuxie/android/export_plugin.gd`: Android export integration.
 - `addons/nuxie/ios/nuxie_godot.gdip`: iOS plugin descriptor.
 - `android-plugin/`: Godot Android plugin backed by `ai.nuxie:nuxie-android:0.1.0`.
-- `ios-plugin/`: Swift runtime bridge and C++ Godot singleton backed by `nuxie-ios` `0.1.0`.
+- `ios-plugin/`: Swift runtime bridge and C++ Godot singleton backed by the exact `nuxie-ios` revision in `VERSIONS.md`.
 
 ## Quick start
 
