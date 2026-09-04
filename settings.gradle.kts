@@ -21,6 +21,14 @@ dependencyResolutionManagement {
   }
 }
 
+providers.environmentVariable("NUXIE_ANDROID_SOURCE_DIR").orNull?.let { sourceDirectory ->
+  includeBuild(sourceDirectory) {
+    dependencySubstitution {
+      substitute(module("ai.nuxie:nuxie-android")).using(project(":nuxie-android"))
+    }
+  }
+}
+
 rootProject.name = "nuxie-godot"
 
 include(":android-plugin")

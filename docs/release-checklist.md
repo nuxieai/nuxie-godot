@@ -28,7 +28,7 @@ Verify:
 
 ## iOS
 
-Run package tests against the exact `nuxie-ios` `0.1.0` dependency, then package against Godot 4.5.1 source:
+Run package tests against the exact `nuxie-ios` revision in `VERSIONS.md`, then package against Godot 4.5.1 source:
 
 ```bash
 xcodebuild test \
