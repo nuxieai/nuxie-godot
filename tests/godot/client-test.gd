@@ -14,6 +14,7 @@ class Bridge extends RefCounted:
 	var generation := "1"
 	var hold := ""
 	var malformed := false
+	var bad_snapshot := false
 	var java_checks := 0
 	func has_java_method(method: String) -> bool:
 		java_checks += 1
@@ -33,7 +34,7 @@ class Bridge extends RefCounted:
 			"configure":
 				var config: Dictionary = JSON.parse_string(args.configuration)
 				session = config.session
-				result = {"contract": 1, "session": session, "snapshot": snapshot()}
+				result = {"contract": 1, "session": session, "snapshot": null if bad_snapshot else snapshot()}
 			"getIdentity":
 				result = {"distinctId": customer, "anonymousId": "anonymous", "isIdentified": customer != "anonymous"}
 			"identify", "reset":
@@ -80,6 +81,10 @@ func _run() -> void:
 	options.ios_api_key = "public-test-key"
 	var controller := Controller.new()
 	options.billing = NuxieBilling.external(controller)
+	var published_customers: Array[String] = []
+	client.features_changed.connect(func(value: NuxieFeatureSnapshot) -> void:
+		if value.kind == NuxieFeatureState.Kind.READY:
+			published_customers.append(value.customer_id))
 	check((await client.configure(options)).ok, "Configure")
 	check(client.get_feature_state("premium").access.allowed, "Initial access")
 	var exposed := client.get_feature_state("premium")
@@ -155,6 +160,11 @@ func _run() -> void:
 	await process_frame
 	check(not configure_interrupted.ok and client.get_status().kind == NuxieStatus.Kind.UNCONFIGURED, "Reentrant shutdown cannot leave native setup attached")
 	client.status_changed.disconnect(shutdown_callback)
+	check(not published_customers.has(""), "Every admitted authority includes its customer")
+	bridge.bad_snapshot = true
+	check(not (await client.configure(options)).ok, "Null native snapshot settles configuration")
+	check(client.get_status().kind == NuxieStatus.Kind.FAILED, "Malformed setup publishes failed status")
+	await client.shutdown()
 	client.queue_free()
 	await process_frame
 	print("Godot client checks: %d, failures: %d" % [checks, failures])

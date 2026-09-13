@@ -51,3 +51,9 @@ func _export_begin(features: PackedStringArray, debug: bool, _path: String, _fla
 	if "ios" in features:
 		var variant := "debug" if debug else "release"
 		add_apple_embedded_platform_embedded_framework("res://addons/nuxie/ios/NuxieGodotBridge.%s.xcframework" % variant)
+
+func _export_file(path: String, _type: String, _features: PackedStringArray) -> void:
+	# Native export hooks package these separately; never copy opposite-platform
+	# frameworks, Maven metadata or their JSON resources into the game's pack.
+	if path.begins_with("res://addons/nuxie/ios/") or path.begins_with("res://addons/nuxie/android/"):
+		skip()
