@@ -1,5 +1,10 @@
 // swift-tools-version: 6.0
 import PackageDescription
+import Foundation
+
+let pinsURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("NATIVE-PINS.json")
+let pins = try JSONSerialization.jsonObject(with: Data(contentsOf: pinsURL)) as! [String: Any]
+let ios = pins["ios"] as! [String: String]
 
 let package = Package(
   name: "NuxieGodotBridge",
@@ -15,8 +20,8 @@ let package = Package(
   ],
   dependencies: [
     .package(
-      url: "https://github.com/nuxieai/nuxie-ios.git",
-      revision: "19e9e56c572c96977af978f87de91828f74ea86d"
+      url: ios["repository"]!,
+      revision: ios["revision"]!
     )
   ],
   targets: [
@@ -30,5 +35,6 @@ let package = Package(
       name: "NuxieGodotBridgeTests",
       dependencies: ["NuxieGodotBridge"]
     )
-  ]
+  ],
+  swiftLanguageModes: [.v5]
 )

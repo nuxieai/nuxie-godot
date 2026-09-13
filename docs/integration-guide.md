@@ -1,111 +1,41 @@
-# Nuxie Godot Integration Guide
+# Installation and native builds
 
-## Install the facade
+Use Godot 4.7.2 and matching templates. Android players require API 24+, Gradle exports and a 64-bit ABI (arm64-v8a or x86_64). iOS requires 15+, Xcode and signing for devices. Use Compatibility rendering for the Lab's simulator path.
 
-Copy `addons/nuxie` into the game and enable `Nuxie` under **Project Settings → Plugins**.
+## Customer addon
 
-```bash
-cp -R addons/nuxie /path/to/game/addons/
+Extract the prepared ZIP into the game root, enable Nuxie under Project Settings → Plugins, and select the NuxieGodot iOS export plugin. Android uses the local Maven repository included in the addon, plus ordinary transitive dependencies fetched by Gradle. The Godot engine is compile-only for the bridge and is supplied by the export template.
+
+The EditorPlugin owns its autoload registration and stages an iOS descriptor under `ios/plugins/nuxie`. It preserves conflicting user-owned registrations/files. Native frameworks stay under `addons/nuxie/ios`; the exporter chooses the debug/release Swift framework, and Godot selects the matching singleton adapter. Native callbacks enter a value queue and are drained on the engine thread.
+
+## Source checkout
+
+Requirements: Python 3, Git, JDK 17, Android SDK 36 and the native SDK's pinned NDK, Xcode, SCons, XcodeGen, and Godot 4.7.2. `NATIVE-PINS.json` is the dependency source of truth. The build scripts fetch exact source revisions; no source checkout is silently substituted for a pin.
+
+```sh
+python3 scripts/prepare-native.py
+python3 scripts/pack.py
 ```
 
-## Android
+The first command creates ignored `.native` inputs and builds Android and iOS artifacts. The second creates `dist/nuxie-godot-0.4.0.zip` and copies exactly that staged addon into `examples/sdk-lab/addons`. Prepared binaries are generated artifacts, not hidden uncommitted SDK source. Preserve `.native` for incremental builds. Never pack the repository root as the addon.
 
-Build the plugin with JDK 17 and an Android SDK:
+The iOS build generates engine headers and compiles separate debug/release singleton adapters with matching DEBUG_ENABLED and threading flags. It packages Nuxie's Swift resource bundle inside each framework. The ZIP includes an artifact checksum manifest. Godot's export preflight checks version and configuration; use the complete native qualification before releasing.
 
-```bash
-./gradlew :android-plugin:testDebugUnitTest \
-  :android-plugin:assembleDebug \
-  :android-plugin:assembleRelease
+## Local backend
+
+Use a disposable Nuxie development app and public platform keys. The Lab reads ignored `local-settings.json`, or its form saves public settings to `user://settings.json`. Root Nuxie development uses `pnpm run dev:print` and `pnpm run dev`; derive the ingest endpoint from that checkout's resolved ports. Android emulator loopback can reach the host with `adb reverse`; physical devices need an appropriate reachable development origin.
+
+The debug native bridges support a local endpoint without weakening release builds:
+
+- Android: launch the exported launcher Activity with the `NUXIE_GODOT_API_ENDPOINT` string extra. The Lab's standardDebug manifest overlay permits local HTTP.
+- iOS: set `NUXIE_GODOT_API_ENDPOINT` in the debug scheme environment or prefix `simctl launch` with `SIMCTL_CHILD_NUXIE_GODOT_API_ENDPOINT`. Configure local-network transport allowance in a development export when needed.
+
+Neither override applies to the release bridge. Store credentials, backend private keys and signing identities are never committed in the Lab. Published native screens may need a development asset origin as well as an API origin; use the backend's published delivery configuration.
+
+## Validation
+
+```sh
+python3 scripts/check.py
 ```
 
-The build copies these files into the addon:
-
-- `addons/nuxie/android/bin/debug/NuxieGodot-debug.aar`
-- `addons/nuxie/android/bin/release/NuxieGodot-release.aar`
-
-The export plugin declares exact dependencies on Godot `4.5.1.stable` and `ai.nuxie:nuxie-android:0.1.0`. Enable `NuxieGodot` in the Android export preset and use the matching debug or release artifact.
-
-For local native SDK validation, point `NUXIE_ANDROID_MAVEN_REPO` at a Maven repository containing `ai.nuxie:nuxie-android:0.1.0`, or set `NUXIE_ANDROID_SOURCE_DIR` to the exact Android SDK checkout to substitute as a composite build.
-
-## iOS
-
-The iOS export contains two artifacts:
-
-- `nuxie_godot_plugin.xcframework`: static C++ plugin that registers the `NuxieGodot` Godot singleton.
-- `NuxieGodotBridge.xcframework`: embedded Swift framework containing the bridge, native SDK, runtime, and SDK resources.
-
-Build them with Xcode, SCons, and a Godot 4.5.x source checkout:
-
-```bash
-GODOT_SOURCE_DIR=/path/to/godot-4.5.1 \
-  ./ios-plugin/scripts/build_xcframework.sh
-
-cp -R ios-plugin/.build/xcframework/nuxie_godot_plugin.xcframework addons/nuxie/ios/
-cp -R ios-plugin/.build/xcframework/NuxieGodotBridge.xcframework addons/nuxie/ios/
-```
-
-Keep both XCFrameworks next to `addons/nuxie/ios/nuxie_godot.gdip`. The descriptor links the static plugin, embeds the Swift framework, enables the Swift runtime, and links StoreKit and WebKit.
-
-Enable `NuxieGodot` in the iOS export preset. A successful device launch makes `Engine.has_singleton("NuxieGodot")` return `true`.
-
-## Configure at runtime
-
-```gdscript
-if not Nuxie.is_available():
-  push_error("Nuxie bridge unavailable")
-  return
-
-var configured := await Nuxie.configure("nuxie_public_api_key", {
-  "environment": "production",
-  "log_level": "warning",
-  "locale_identifier": null,
-  "purchase_handling_mode": "full",
-})
-
-if not configured.ok:
-  push_error("Nuxie configure failed: %s" % [configured.error])
-  return
-
-Nuxie.trigger("game_opened", {"source": "launch"})
-```
-
-Identity changes update native SDK state. Profile synchronization follows the native SDK lifecycle and occurs at launch and foreground sync points.
-
-## App actions
-
-Journeys can ask the host app to perform a typed action:
-
-```gdscript
-Nuxie.on("app_action", func(action: Dictionary) -> void:
-  match action.name:
-    "open_inventory": _open_inventory(action.payload)
-    _: push_warning("Unhandled Nuxie app action: %s" % action.name)
-)
-```
-
-Add any platform permissions and usage descriptions required by actions your game implements.
-
-## App-managed purchases
-
-Set callbacks before configuration:
-
-```gdscript
-Nuxie.set_purchase_controller(_purchase, _restore)
-var configured := await Nuxie.configure("nuxie_public_api_key", {
-  "purchase_handling_mode": "observer",
-}, true)
-```
-
-The callback contracts are documented in `docs/api-reference.md`. Both callbacks may return immediately or suspend.
-
-## Verification
-
-- `Nuxie.is_available()` is `true` in an exported mobile build.
-- `configure` resolves with `ok == true`.
-- `trigger` returns immediately and matching Journeys present through the native SDK.
-- `has_feature` honors both cache-first and remote policies.
-- `use_feature_and_wait` includes `authoritativeAccess` when the server supplies it.
-- `activity` and `app_action` callbacks preserve typed property values.
-- App-managed purchase and restore callbacks resolve their native continuations.
-
-If `NATIVE_SDK_UNAVAILABLE` is reported, verify that the platform artifact and export plugin are enabled. On iOS, verify that both XCFrameworks are present beside the `.gdip` file.
+This runs the pinned Godot client tests, Android unit tests/lint/builds, and real iOS simulator bridge tests. `GODOT_BIN` can select an installed copy of the pinned editor. The [Lab guide](../examples/sdk-lab/README.md) and [qualification record](testing-and-validation.md) describe player tests. Passing this command alone does not qualify store purchases or native presentation.

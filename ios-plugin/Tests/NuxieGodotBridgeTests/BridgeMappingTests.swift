@@ -1,36 +1,24 @@
 import XCTest
-@preconcurrency import Nuxie
+import Nuxie
 @testable import NuxieGodotBridge
 
 final class BridgeMappingTests: XCTestCase {
-  func testUsageResultPreservesFractionalValuesAndNullAuthority() {
-    let result = FeatureUsageResult(
-      success: true,
-      featureId: "credits",
-      amountUsed: 1.25,
-      message: nil,
-      usage: .init(current: 3.75, limit: 10, remaining: 6.25)
-    )
-
-    let payload = featureUsageResultDictionary(result)
-    XCTAssertEqual(payload["featureId"] as? String, "credits")
-    XCTAssertEqual(payload["amountUsed"] as? Double, 1.25)
-    XCTAssertTrue(payload["message"] is NSNull)
-    XCTAssertTrue(payload["authoritativeAccess"] is NSNull)
-
-    let usage = payload["usage"] as? [String: Any]
-    XCTAssertEqual(usage?["remaining"] as? Double, 6.25)
+  func testRestoreHasBoundedSettlement() async {
+    let bridge = NuxiePurchaseDelegateBridge(timeoutSeconds: 0.01) { _, _ in }
+    let result = await bridge.restorePurchases()
+    guard case .failed = result else { return XCTFail("Missing controller reply must time out") }
   }
 
-  func testJSONRoundTripPreservesSnakeCaseCommerceKeys() {
-    let payload: [String: Any] = [
-      "request_id": "purchase-1",
-      "product_id": "pro",
-      "store_product_id": "pro.monthly",
-      "timestamp_ms": 42,
-    ]
-
-    XCTAssertEqual(dictionaryFromJSON(jsonString(payload))?["request_id"] as? String, "purchase-1")
-    XCTAssertNil(dictionaryFromJSON(jsonString(payload))?["requestId"])
+  func testRestoreCorrelationAndDuplicateCompletion() async {
+    var bridge: NuxiePurchaseDelegateBridge!
+    bridge = NuxiePurchaseDelegateBridge { name, payload in
+      XCTAssertEqual(name, "restore")
+      let id = payload["requestId"] as! String
+      bridge.completeRestore(requestId: "wrong-id", payload: ["type": "failed"])
+      bridge.completeRestore(requestId: id, payload: ["type": "restored"])
+      bridge.completeRestore(requestId: id, payload: ["type": "failed"])
+    }
+    let result = await bridge.restorePurchases()
+    guard case .restored = result else { return XCTFail("Matching first result wins") }
   }
 }

@@ -1,12 +1,12 @@
 {
-  "originHash" : "f02fc96ae688c90256935845622e0dfd47f02478b8f40074e562ccb1af3a812d",
+  "originHash" : "081cf609d50e6905339f9ddc26a10022590624d949e7933ace8b1e3b581e906b",
   "pins" : [
     {
       "identity" : "nuxie-ios",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/nuxieai/nuxie-ios.git",
       "state" : {
-        "revision" : "19e9e56c572c96977af978f87de91828f74ea86d"
+        "revision" : "c2f304eb87f3efbedaa38052ca64eab53e0d0b0f"
       }
     }
   ],

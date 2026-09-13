@@ -1,0 +1,10 @@
+{
+  "iosApiKey": "YOUR_IOS_PUBLIC_KEY",
+  "androidApiKey": "YOUR_ANDROID_PUBLIC_KEY",
+  "customerId": "godot-lab-player",
+  "featureId": "energy",
+  "entityA": "character-a",
+  "entityB": "character-b",
+  "triggerEvent": "godot_shop_opened",
+  "autorun": false
+}

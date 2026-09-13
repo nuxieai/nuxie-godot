@@ -1,596 +1,164 @@
 import Foundation
-@preconcurrency import Nuxie
+import Combine
+#if DEBUG
+@_spi(Testing) import Nuxie
+#else
+import Nuxie
+#endif
 
-public final class NuxieGodotNativeBridge: @unchecked Sendable {
-  private let stateQueue = DispatchQueue(label: "ai.nuxie.godot.bridge.state")
-  private var eventEmitter: (@Sendable (String, [String: Any]) -> Void)?
-  private var delegateBridge: NuxieGodotDelegateBridge?
-  private var configured = false
-  private lazy var purchaseDelegateBridge = NuxieGodotPurchaseDelegateBridge(emit: emitEvent)
-
-  public init(
-    eventEmitter: (@Sendable (String, [String: Any]) -> Void)? = nil
-  ) {
-    self.eventEmitter = eventEmitter
+@objc(NuxieGodotRuntime)
+public final class NuxieGodotRuntime: NSObject {
+  @objc public var emit: ((String) -> Void)?
+  private var session: String?
+  private var snapshotSubscription: AnyCancellable?
+  private static weak var owner: NuxieGodotRuntime?
+  private static var configurationKey: String?
+  private lazy var purchases = NuxiePurchaseDelegateBridge { [weak self] name, payload in
+    Task { @MainActor [weak self] in self?.send(name, payload) }
   }
+  @MainActor private lazy var delegate = NuxieDelegateBridge { [weak self] name, payload in self?.send(name, payload) }
 
-  public func setEventEmitter(
-    _ eventEmitter: (@Sendable (String, [String: Any]) -> Void)?
-  ) {
-    stateQueue.sync {
-      self.eventEmitter = eventEmitter
-    }
-  }
-
-  public func configure(
-    apiKey: String,
-    options: [String: Any],
-    usePurchaseController: Bool,
-    wrapperVersion: String,
-    requestId: String
-  ) {
-    let trimmedApiKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !trimmedApiKey.isEmpty else {
-      emitOperation(
-        method: "configure",
-        requestId: requestId,
-        ok: false,
-        error: bridgeError(code: "MISSING_API_KEY", message: "Nuxie API key is required")
-      )
-      return
-    }
-
-    let optionsBox = UnsafeAnyDictionary(value: options)
+  @objc public func invalidate() {
     Task { @MainActor in
-      let delegate = NuxieGodotDelegateBridge(emit: self.emitEvent)
-      do {
-        let configuration = self.makeConfiguration(
-          apiKey: trimmedApiKey,
-          options: optionsBox.value,
-          usePurchaseController: usePurchaseController
-        )
-        self.stateQueue.sync {
-          self.delegateBridge = delegate
-        }
-        NuxieSDK.shared.delegate = delegate
-        try NuxieSDK.shared.setup(with: configuration)
-        self.stateQueue.sync {
-          self.configured = true
-        }
-        self.emitOperation(
-          method: "configure",
-          requestId: requestId,
-          ok: true,
-          result: [
-            "isConfigured": true,
-            "wrapperVersion": wrapperVersion,
-          ]
-        )
-      } catch {
+      self.snapshotSubscription?.cancel()
+      self.purchases.cancelPending()
+      self.session = nil
+      self.emit = nil
+      if Self.owner === self {
         NuxieSDK.shared.delegate = nil
-        self.stateQueue.sync {
-          self.delegateBridge = nil
-          self.configured = false
-        }
-        self.emitOperation(
-          method: "configure",
-          requestId: requestId,
-          ok: false,
-          error: bridgeError(from: error, fallbackCode: "CONFIGURE_FAILED")
-        )
+        Self.owner = nil
       }
     }
   }
 
-  public func shutdown(requestId: String) {
-    runAsync(method: "shutdown", requestId: requestId) {
-      self.purchaseDelegateBridge.cancelPending(reason: "sdk_shutdown")
-      await NuxieSDK.shared.shutdown()
-      await MainActor.run {
-        NuxieSDK.shared.delegate = nil
-      }
-      self.stateQueue.sync {
-        self.delegateBridge = nil
-        self.configured = false
-      }
-      return ["isConfigured": false]
-    }
+  @MainActor private func send(_ name: String, _ payload: [String: Any]) {
+    guard let session else { return }
+    if let json = try? encode(["session": session, "name": name, "payload": payload]) { emit?(json) }
   }
 
-  public func identify(
-    distinctId: String,
-    userProperties: [String: Any],
-    userPropertiesSetOnce: [String: Any],
-    requestId: String
-  ) {
-    guard requireConfigured(method: "identify", requestId: requestId) else { return }
-    NuxieSDK.shared.identify(
-      distinctId,
-      userProperties: userProperties,
-      userPropertiesSetOnce: userPropertiesSetOnce
-    )
-    emitOperation(
-      method: "identify",
-      requestId: requestId,
-      ok: true,
-      result: ["distinctId": NuxieSDK.shared.getDistinctId()]
-    )
+  @MainActor private func snapshot(_ value: FeatureInfo.Snapshot) -> [String: Any] {
+    ["identityGeneration": String(value.identityGeneration), "revision": String(value.revision),
+     "state": String(describing: value.state), "all": value.all.mapValues(featureAccessDictionary)]
   }
 
-  public func reset(keepAnonymousId: Bool, requestId: String) {
-    guard requireConfigured(method: "reset", requestId: requestId) else { return }
-    NuxieSDK.shared.reset(keepAnonymousId: keepAnonymousId)
-    emitOperation(
-      method: "reset",
-      requestId: requestId,
-      ok: true,
-      result: [
-        "distinctId": NuxieSDK.shared.getDistinctId(),
-        "anonymousId": NuxieSDK.shared.getAnonymousId(),
-        "isIdentified": NuxieSDK.shared.isIdentified,
-      ]
-    )
-  }
-
-  public func getDistinctId(requestId: String) {
-    guard requireConfigured(method: "getDistinctId", requestId: requestId) else { return }
-    emitOperation(
-      method: "getDistinctId",
-      requestId: requestId,
-      ok: true,
-      result: ["distinctId": NuxieSDK.shared.getDistinctId()]
-    )
-  }
-
-  public func getAnonymousId(requestId: String) {
-    guard requireConfigured(method: "getAnonymousId", requestId: requestId) else { return }
-    emitOperation(
-      method: "getAnonymousId",
-      requestId: requestId,
-      ok: true,
-      result: ["anonymousId": NuxieSDK.shared.getAnonymousId()]
-    )
-  }
-
-  public func getIsIdentified(requestId: String) {
-    guard requireConfigured(method: "getIsIdentified", requestId: requestId) else { return }
-    emitOperation(
-      method: "getIsIdentified",
-      requestId: requestId,
-      ok: true,
-      result: ["isIdentified": NuxieSDK.shared.isIdentified]
-    )
-  }
-
-  public func trigger(eventName: String, properties: [String: Any]) {
-    NuxieSDK.shared.trigger(eventName, properties: properties)
-  }
-
-  public func dismiss(requestId: String) {
-    guard requireConfigured(method: "dismiss", requestId: requestId) else { return }
-    runAsync(method: "dismiss", requestId: requestId) {
-      await NuxieSDK.shared.dismiss()
-      return [:]
-    }
-  }
-
-  public func setLocaleIdentifier(_ localeIdentifier: String?, requestId: String) {
-    guard requireConfigured(method: "setLocaleIdentifier", requestId: requestId) else { return }
-    runAsync(method: "setLocaleIdentifier", requestId: requestId) {
-      try await NuxieSDK.shared.setLocaleIdentifier(localeIdentifier)
-      return [:]
-    }
-  }
-
-  public func hasFeature(
-    featureId: String,
-    requiredBalance: Double,
-    entityId: String?,
-    policy: String,
-    requestId: String
-  ) {
-    guard requireConfigured(method: "hasFeature", requestId: requestId) else { return }
-    runAsync(method: "hasFeature", requestId: requestId) {
-      let access = try await NuxieSDK.shared.hasFeature(
-        featureId,
-        requiredBalance: requiredBalance,
-        entityId: self.normalizedEntityId(entityId),
-        policy: policy == "remote" ? .remote : .cacheFirst
-      )
-      return featureAccessDictionary(access)
-    }
-  }
-
-  public func useFeature(
-    featureId: String,
-    amount: Double,
-    entityId: String?,
-    metadata: [String: Any]
-  ) {
-    NuxieSDK.shared.useFeature(
-      featureId,
-      amount: amount,
-      entityId: normalizedEntityId(entityId),
-      metadata: metadata
-    )
-  }
-
-  public func useFeatureAndWait(
-    featureId: String,
-    amount: Double,
-    entityId: String?,
-    setUsage: Bool,
-    metadata: [String: Any],
-    requestId: String
-  ) {
-    guard requireConfigured(method: "useFeatureAndWait", requestId: requestId) else { return }
-    let metadataBox = UnsafeAnyDictionary(value: metadata)
-    runAsync(method: "useFeatureAndWait", requestId: requestId) {
-      let result = try await NuxieSDK.shared.useFeatureAndWait(
-        featureId,
-        amount: amount,
-        entityId: self.normalizedEntityId(entityId),
-        setUsage: setUsage,
-        metadata: metadataBox.value
-      )
-      return featureUsageResultDictionary(result)
-    }
-  }
-
-  public func completePurchase(requestId: String, result: [String: Any]) {
-    purchaseDelegateBridge.completePurchase(requestId: requestId, payload: result)
-  }
-
-  public func completeRestore(requestId: String, result: [String: Any]) {
-    purchaseDelegateBridge.completeRestore(requestId: requestId, payload: result)
-  }
-
-  private func runAsync(
-    method: String,
-    requestId: String,
-    operation: @escaping @Sendable () async throws -> [String: Any]
-  ) {
-    Task {
+  @objc public func invoke(_ method: String, arguments: [String: Any],
+    resolve: @escaping (Any?) -> Void, reject: @escaping (String, String, NSError?) -> Void) {
+    Task { @MainActor in
       do {
-        emitOperation(
-          method: method,
-          requestId: requestId,
-          ok: true,
-          result: try await operation()
-        )
+        if method != "configure" {
+          guard Self.owner === self, let session = self.session, arguments["session"] as? String == session else {
+            throw failure("sessionExpired", "Configure Nuxie in this Godot runtime before calling its API")
+          }
+        }
+        let sdk = NuxieSDK.shared
+        switch method {
+        case "configure":
+          let input = try object(arguments["configuration"])
+          guard input["contract"] as? Int == 1 else { throw failure("incompatibleBridge", "Rebuild the app with the matching Nuxie native module") }
+          let session = try required(input, "session")
+          let apiKey = try required(input, "apiKey")
+          var keyInput = input; keyInput.removeValue(forKey: "session")
+          let key = try encode(keyInput)
+          if let owner = Self.owner, owner !== self { throw failure("engineAlreadyAttached", "Another runtime owns Nuxie") }
+          if let previous = Self.configurationKey, previous != key { throw failure("alreadyConfigured", "Shutdown before changing Nuxie configuration") }
+          if sdk.isSetup && Self.configurationKey == nil { throw failure("alreadyConfigured", "Nuxie was configured outside Godot") }
+          Self.owner = self
+          self.session = session
+          self.purchases.cancelPending()
+          self.snapshotSubscription?.cancel()
+          let config = NuxieConfiguration(apiKey: apiKey)
+          config.environment = input["environment"] as? String == "development" ? .development : .production
+          switch input["logLevel"] as? String {
+          case "verbose": config.logLevel = .verbose
+          case "debug": config.logLevel = .debug
+          case "info": config.logLevel = .info
+          case "error": config.logLevel = .error
+          case "none": config.logLevel = .none
+          default: config.logLevel = .warning
+          }
+          config.localeIdentifier = input["localeIdentifier"] as? String
+          config.purchaseHandlingMode = input["purchaseHandlingMode"] as? String == "observer" ? .observer : .full
+          config.purchaseDelegate = input["externalBilling"] as? Bool == true ? self.purchases : nil
+#if DEBUG
+          if let endpoint = ProcessInfo.processInfo.environment["NUXIE_GODOT_API_ENDPOINT"], let url = URL(string: endpoint) {
+            config.testingOverrides.apiEndpoint = url
+          }
+#endif
+          sdk.delegate = self.delegate
+          if sdk.isSetup { try sdk.setPurchaseDelegate(config.purchaseDelegate) }
+          else { try sdk.setup(with: config) }
+          Self.configurationKey = key
+          self.snapshotSubscription = sdk.features.$snapshot.sink { [weak self] value in
+            guard let self else { return }
+            self.send("features", self.snapshot(value))
+          }
+          resolve(try encode(["contract": 1, "session": session, "nativeVersion": sdk.version,
+            "snapshot": self.snapshot(sdk.features.snapshot)]))
+        case "shutdown":
+          self.snapshotSubscription?.cancel()
+          self.purchases.cancelPending()
+          await sdk.shutdown()
+          sdk.delegate = nil
+          self.session = nil; Self.owner = nil; Self.configurationKey = nil
+          resolve(nil)
+        case "identify":
+          let options = try object(arguments["properties"])
+          sdk.identify(try required(arguments, "customerId"), userProperties: options["properties"] as? [String: Any],
+            userPropertiesSetOnce: options["propertiesSetOnce"] as? [String: Any])
+          resolve(try encode(self.snapshot(sdk.features.snapshot)))
+        case "reset": sdk.reset(keepAnonymousId: false); resolve(try encode(self.snapshot(sdk.features.snapshot)))
+        case "getIdentity": resolve(try encode(["distinctId": sdk.getDistinctId(), "anonymousId": sdk.getAnonymousId(), "isIdentified": sdk.isIdentified]))
+        case "setLocaleIdentifier": try await sdk.setLocaleIdentifier(arguments["locale"] as? String); resolve(nil)
+        case "trigger": sdk.trigger(try required(arguments, "event"), properties: try object(arguments["properties"])); resolve(nil)
+        case "dismiss": await sdk.dismiss(); resolve(nil)
+        case "hasFeature":
+          let options = try object(arguments["options"])
+          let access = try await sdk.hasFeature(try required(arguments, "featureId"),
+            requiredBalance: options["requiredBalance"] as? Double ?? 1, entityId: options["entityId"] as? String,
+            policy: options["policy"] as? String == "remote" ? .remote : .cacheFirst)
+          resolve(try encode(featureAccessDictionary(access)))
+        case "consumeFeature":
+          let options = try object(arguments["options"])
+          let result = try await sdk.consumeFeature(try required(arguments, "featureId"),
+            quantity: options["quantity"] as? Double ?? 1, operationId: try required(options, "operationId"),
+            entityId: options["entityId"] as? String)
+          resolve(try encode(["customerId": result.customerId, "featureId": result.featureId, "occurredAtMs": nuxieNullable(result.occurredAtMs),
+            "operationId": result.operationId, "accepted": result.accepted, "code": result.code,
+            "quantity": result.quantity, "balance": nuxieNullable(result.balance), "unlimited": result.unlimited,
+            "active": result.active, "idempotentReplay": result.idempotentReplay]))
+        case "completePurchase": self.purchases.completePurchase(requestId: try required(arguments, "requestId"), payload: try object(arguments["result"])); resolve(nil)
+        case "completeRestore": self.purchases.completeRestore(requestId: try required(arguments, "requestId"), payload: try object(arguments["result"])); resolve(nil)
+        default: throw failure("invalidMethod", "Unsupported bridge method")
+        }
       } catch {
-        emitOperation(
-          method: method,
-          requestId: requestId,
-          ok: false,
-          error: bridgeError(from: error)
-        )
+        if method == "configure", !NuxieSDK.shared.isSetup {
+          self.snapshotSubscription?.cancel(); self.purchases.cancelPending()
+          self.session = nil
+          if Self.owner === self { Self.owner = nil; NuxieSDK.shared.delegate = nil }
+        }
+        let error = error as NSError
+        reject(error.userInfo["code"] as? String ?? "nativeError", error.localizedDescription, error)
       }
     }
-  }
-
-  private func requireConfigured(method: String, requestId: String) -> Bool {
-    guard stateQueue.sync(execute: { configured }) else {
-      emitOperation(
-        method: method,
-        requestId: requestId,
-        ok: false,
-        error: bridgeError(code: "NOT_CONFIGURED", message: "Nuxie SDK is not configured")
-      )
-      return false
-    }
-    return true
-  }
-
-  private func emitOperation(
-    method: String,
-    requestId: String,
-    ok: Bool,
-    result: [String: Any] = [:],
-    error: [String: Any] = [:]
-  ) {
-    emitEvent(
-      "operation_result",
-      [
-        "requestId": requestId,
-        "method": method,
-        "ok": ok,
-        "result": result,
-        "error": error,
-        "timestampMs": bridgeNowMs(),
-      ]
-    )
-  }
-
-  private func emitEvent(_ eventName: String, _ payload: [String: Any]) {
-    stateQueue.sync {
-      eventEmitter?(eventName, payload)
-    }
-  }
-
-  @MainActor
-  private func makeConfiguration(
-    apiKey: String,
-    options: [String: Any],
-    usePurchaseController: Bool
-  ) -> NuxieConfiguration {
-    let configuration = NuxieConfiguration(apiKey: apiKey)
-    configuration.environment = options["environment"] as? String == "development"
-      ? .development
-      : .production
-    configuration.logLevel = switch options["log_level"] as? String {
-    case "verbose": .verbose
-    case "debug": .debug
-    case "info": .info
-    case "error": .error
-    case "none": .none
-    default: .warning
-    }
-    if let enabled = options["enable_console_logging"] as? Bool {
-      configuration.enableConsoleLogging = enabled
-    }
-    if let redact = options["redact_sensitive_data"] as? Bool {
-      configuration.redactSensitiveData = redact
-    }
-    if options.keys.contains("locale_identifier") {
-      configuration.localeIdentifier = options["locale_identifier"] as? String
-    }
-    configuration.purchaseHandlingMode =
-      options["purchase_handling_mode"] as? String == "observer" ? .observer : .full
-    if let enabled = options["test_store_enabled"] as? Bool {
-      configuration.testStoreEnabled = enabled
-    }
-    if usePurchaseController {
-      configuration.purchaseDelegate = purchaseDelegateBridge
-    }
-    return configuration
-  }
-
-  private func normalizedEntityId(_ value: String?) -> String? {
-    guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines),
-          !value.isEmpty
-    else {
-      return nil
-    }
-    return value
   }
 }
 
-private struct UnsafeAnyDictionary: @unchecked Sendable {
-  let value: [String: Any]
+private func failure(_ code: String, _ message: String) -> NSError {
+  NSError(domain: "ai.nuxie.godot", code: 1, userInfo: ["code": code, NSLocalizedDescriptionKey: message])
 }
-
-private final class NuxieGodotRuntime: @unchecked Sendable {
-  static let shared = NuxieGodotRuntime()
-
-  private let lock = NSLock()
-  private var pendingEvents: [[String: Any]] = []
-  private let bridge: NuxieGodotNativeBridge
-
-  private init() {
-    bridge = NuxieGodotNativeBridge()
-    bridge.setEventEmitter { [weak self] eventName, payload in
-      self?.enqueue(eventName: eventName, payload: payload)
-    }
+private func required(_ object: [String: Any], _ key: String) throws -> String {
+  guard let value = object[key] as? String, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+    throw failure("invalidArgument", "Missing or empty \(key)")
   }
-
-  func shutdown() {
-    bridge.shutdown(requestId: "__runtime_shutdown__")
-  }
-
-  func invoke(method: String, argsJSON: String) -> String {
-    guard let arguments = dictionaryFromJSON(argsJSON.isEmpty ? "{}" : argsJSON) else {
-      return errorResponse("INVALID_ARGUMENTS", "Arguments must be a JSON object")
-    }
-    return dispatch(method: method, arguments: arguments)
-  }
-
-  func pendingEventCount() -> Int32 {
-    lock.withLock { Int32(pendingEvents.count) }
-  }
-
-  func popPendingEventJSON() -> String? {
-    lock.withLock {
-      guard !pendingEvents.isEmpty else { return nil }
-      return jsonString(pendingEvents.removeFirst())
-    }
-  }
-
-  private func enqueue(eventName: String, payload: [String: Any]) {
-    lock.withLock {
-      pendingEvents.append([
-        "event": eventName,
-        "payload": payload,
-      ])
-    }
-  }
-
-  private func dispatch(method: String, arguments: [String: Any]) -> String {
-    switch method {
-    case "configure":
-      guard let apiKey = arguments["apiKey"] as? String,
-            let requestId = arguments["requestId"] as? String
-      else {
-        return errorResponse("INVALID_ARGUMENTS", "configure requires apiKey and requestId")
-      }
-      bridge.configure(
-        apiKey: apiKey,
-        options: arguments["options"] as? [String: Any] ?? [:],
-        usePurchaseController: boolean(arguments["usePurchaseController"]) ?? false,
-        wrapperVersion: arguments["wrapperVersion"] as? String ?? "",
-        requestId: requestId
-      )
-
-    case "shutdown":
-      guard let requestId = arguments["requestId"] as? String else {
-        return errorResponse("INVALID_ARGUMENTS", "shutdown requires requestId")
-      }
-      bridge.shutdown(requestId: requestId)
-
-    case "identify":
-      guard let distinctId = arguments["distinctId"] as? String,
-            let requestId = arguments["requestId"] as? String
-      else {
-        return errorResponse("INVALID_ARGUMENTS", "identify requires distinctId and requestId")
-      }
-      bridge.identify(
-        distinctId: distinctId,
-        userProperties: arguments["userProperties"] as? [String: Any] ?? [:],
-        userPropertiesSetOnce: arguments["userPropertiesSetOnce"] as? [String: Any] ?? [:],
-        requestId: requestId
-      )
-
-    case "reset":
-      guard let requestId = arguments["requestId"] as? String else {
-        return errorResponse("INVALID_ARGUMENTS", "reset requires requestId")
-      }
-      bridge.reset(
-        keepAnonymousId: boolean(arguments["keepAnonymousId"]) ?? false,
-        requestId: requestId
-      )
-
-    case "getDistinctId":
-      guard let requestId = arguments["requestId"] as? String else {
-        return errorResponse("INVALID_ARGUMENTS", "getDistinctId requires requestId")
-      }
-      bridge.getDistinctId(requestId: requestId)
-
-    case "getAnonymousId":
-      guard let requestId = arguments["requestId"] as? String else {
-        return errorResponse("INVALID_ARGUMENTS", "getAnonymousId requires requestId")
-      }
-      bridge.getAnonymousId(requestId: requestId)
-
-    case "getIsIdentified":
-      guard let requestId = arguments["requestId"] as? String else {
-        return errorResponse("INVALID_ARGUMENTS", "getIsIdentified requires requestId")
-      }
-      bridge.getIsIdentified(requestId: requestId)
-
-    case "trigger":
-      guard let eventName = arguments["eventName"] as? String else {
-        return errorResponse("INVALID_ARGUMENTS", "trigger requires eventName")
-      }
-      bridge.trigger(
-        eventName: eventName,
-        properties: arguments["properties"] as? [String: Any] ?? [:]
-      )
-
-    case "dismiss":
-      guard let requestId = arguments["requestId"] as? String else {
-        return errorResponse("INVALID_ARGUMENTS", "dismiss requires requestId")
-      }
-      bridge.dismiss(requestId: requestId)
-
-    case "setLocaleIdentifier":
-      guard let requestId = arguments["requestId"] as? String else {
-        return errorResponse("INVALID_ARGUMENTS", "setLocaleIdentifier requires requestId")
-      }
-      bridge.setLocaleIdentifier(
-        arguments["localeIdentifier"] as? String,
-        requestId: requestId
-      )
-
-    case "hasFeature":
-      guard let featureId = arguments["featureId"] as? String,
-            let requestId = arguments["requestId"] as? String
-      else {
-        return errorResponse("INVALID_ARGUMENTS", "hasFeature requires featureId and requestId")
-      }
-      bridge.hasFeature(
-        featureId: featureId,
-        requiredBalance: number(arguments["requiredBalance"]) ?? 1,
-        entityId: arguments["entityId"] as? String,
-        policy: arguments["policy"] as? String ?? "cache_first",
-        requestId: requestId
-      )
-
-    case "useFeature":
-      guard let featureId = arguments["featureId"] as? String else {
-        return errorResponse("INVALID_ARGUMENTS", "useFeature requires featureId")
-      }
-      bridge.useFeature(
-        featureId: featureId,
-        amount: number(arguments["amount"]) ?? 1,
-        entityId: arguments["entityId"] as? String,
-        metadata: arguments["metadata"] as? [String: Any] ?? [:]
-      )
-
-    case "useFeatureAndWait":
-      guard let featureId = arguments["featureId"] as? String,
-            let requestId = arguments["requestId"] as? String
-      else {
-        return errorResponse("INVALID_ARGUMENTS", "useFeatureAndWait requires featureId and requestId")
-      }
-      bridge.useFeatureAndWait(
-        featureId: featureId,
-        amount: number(arguments["amount"]) ?? 1,
-        entityId: arguments["entityId"] as? String,
-        setUsage: boolean(arguments["setUsage"]) ?? false,
-        metadata: arguments["metadata"] as? [String: Any] ?? [:],
-        requestId: requestId
-      )
-
-    case "completePurchase":
-      guard let requestId = arguments["requestId"] as? String,
-            let result = arguments["result"] as? [String: Any]
-      else {
-        return errorResponse("INVALID_ARGUMENTS", "completePurchase requires requestId and result")
-      }
-      bridge.completePurchase(requestId: requestId, result: result)
-
-    case "completeRestore":
-      guard let requestId = arguments["requestId"] as? String,
-            let result = arguments["result"] as? [String: Any]
-      else {
-        return errorResponse("INVALID_ARGUMENTS", "completeRestore requires requestId and result")
-      }
-      bridge.completeRestore(requestId: requestId, result: result)
-
-    default:
-      return errorResponse("NATIVE_ERROR", "Unsupported method '\(method)'")
-    }
-
-    return jsonString(["ok": true])
-  }
-
-  private func errorResponse(_ code: String, _ message: String) -> String {
-    jsonString([
-      "ok": false,
-      "error": bridgeError(code: code, message: message),
-    ])
-  }
+  return value
 }
-
-@_cdecl("NuxieGodot_Invoke")
-public func NuxieGodot_Invoke(
-  _ methodPointer: UnsafePointer<CChar>?,
-  _ argumentsPointer: UnsafePointer<CChar>?
-) -> UnsafeMutablePointer<CChar>? {
-  let method = methodPointer.map(String.init(cString:)) ?? ""
-  let arguments = argumentsPointer.map(String.init(cString:)) ?? "{}"
-  return strdup(NuxieGodotRuntime.shared.invoke(method: method, argsJSON: arguments))
-}
-
-@_cdecl("NuxieGodot_GetPendingEventCount")
-public func NuxieGodot_GetPendingEventCount() -> Int32 {
-  NuxieGodotRuntime.shared.pendingEventCount()
-}
-
-@_cdecl("NuxieGodot_PopPendingEvent")
-public func NuxieGodot_PopPendingEvent() -> UnsafeMutablePointer<CChar>? {
-  guard let event = NuxieGodotRuntime.shared.popPendingEventJSON() else {
-    return nil
+private func object(_ raw: Any?) throws -> [String: Any] {
+  guard let raw = raw as? String, let data = raw.data(using: .utf8),
+    let value = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+    throw failure("invalidArgument", "Expected a JSON object")
   }
-  return strdup(event)
+  return value
 }
-
-@_cdecl("NuxieGodot_FreeCString")
-public func NuxieGodot_FreeCString(_ pointer: UnsafeMutablePointer<CChar>?) {
-  free(pointer)
-}
-
-@_cdecl("NuxieGodot_Shutdown")
-public func NuxieGodot_Shutdown() {
-  NuxieGodotRuntime.shared.shutdown()
+private func encode(_ value: [String: Any]) throws -> String {
+  String(decoding: try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]), as: UTF8.self)
 }
