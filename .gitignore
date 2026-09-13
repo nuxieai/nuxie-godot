@@ -13,5 +13,14 @@ DerivedData/
 *.xcodeproj/xcuserdata/
 local.properties
 .godot/
-*.gd.uid
 addons/nuxie/android/bin/**/*.aar
+
+.native/
+dist/
+examples/sdk-lab/addons/
+examples/sdk-lab/ios/
+examples/sdk-lab/android/
+examples/sdk-lab/local-settings.json
+addons/nuxie/ios/*.xcframework/
+addons/nuxie/android/maven/
+addons/nuxie/artifact-checksums.json

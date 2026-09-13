@@ -5,6 +5,9 @@ plugins {
   id("org.jetbrains.kotlin.android")
 }
 
+val pins = groovy.json.JsonSlurper().parse(rootProject.file("NATIVE-PINS.json")) as Map<*, *>
+val androidRevision = (pins["android"] as Map<*, *>)["revision"] as String
+val godotVersion = pins["godot"] as String
 val pluginName = "NuxieGodot"
 val pluginPackageName = "ai.nuxie.godot"
 
@@ -18,6 +21,7 @@ android {
 
   defaultConfig {
     minSdk = 23
+    consumerProguardFiles("consumer-rules.pro")
 
     manifestPlaceholders["godotPluginName"] = pluginName
     manifestPlaceholders["godotPluginPackageName"] = pluginPackageName
@@ -38,10 +42,10 @@ android {
 }
 
 dependencies {
-  implementation("org.godotengine:godot:4.5.1.stable")
+  compileOnly("org.godotengine:godot:$godotVersion.stable")
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
-  implementation("ai.nuxie:nuxie-android:0.1.0")
+  implementation("ai.nuxie:nuxie-android:0.2.0-$androidRevision")
 
   testImplementation("junit:junit:4.13.2")
 }

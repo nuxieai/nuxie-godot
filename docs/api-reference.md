@@ -1,213 +1,84 @@
-# Nuxie Godot API Reference
+# API reference
 
-The public API is the static `Nuxie` facade in `addons/nuxie/nuxie.gd`. Android and iOS both expose the native engine singleton as `NuxieGodot`.
-
-## Operation results
-
-Awaitable methods resolve to this shape:
-
-```gdscript
-{
-  "ok": bool,
-  "result": Dictionary,
-  "error": Dictionary, # { code, message, nativeStack? }
-}
-```
-
-The bridge uses request IDs and native operation events internally. They are transport details and are not part of the public subscription API.
+The `Nuxie` autoload owns one native session. Call its API on Godot's main thread. Callers receive detached value objects: modifying a returned access, dictionary or receipt cannot mutate the client's cache. GDScript internal fields are not a privacy boundary.
 
 ## Lifecycle and identity
 
-| Method | Return | Behavior |
+| Method | Awaited result | Contract |
 | --- | --- | --- |
-| `Nuxie.is_available()` | `bool` | Reports whether the native singleton is present. |
-| `Nuxie.configure(api_key, options := {}, use_purchase_controller := false)` | `Dictionary` | Configures the native SDK. |
-| `Nuxie.shutdown()` | `Dictionary` | Shuts down the native SDK and rejects pending wrapper operations. |
-| `Nuxie.identify(distinct_id, user_properties := {}, user_properties_set_once := {})` | `Dictionary` | Updates local identity and properties. |
-| `Nuxie.reset(keep_anonymous_id := false)` | `Dictionary` | Resets identity. The breaking-change default is `false`. |
-| `Nuxie.get_distinct_id()` | `String` | Returns the current distinct ID or `""` on error. |
-| `Nuxie.get_anonymous_id()` | `String` | Returns the current anonymous ID or `""` on error. |
-| `Nuxie.get_is_identified()` | `bool` | Reports whether the current identity is identified. |
-| `Nuxie.dismiss()` | `Dictionary` | Dismisses the currently presented experience. |
-| `Nuxie.set_locale_identifier(locale_identifier := null)` | `Dictionary` | Sets an explicit locale or clears the override with `null`. |
+| `configure(NuxieOptions)` | NuxieResult | Equivalent concurrent calls share setup; changing options/controller requires shutdown. |
+| `shutdown()` | NuxieResult | Settle pending calls, discard the session and invalidate access. |
+| `identify(customer_id, NuxieIdentityOptions = null)` | NuxieResult | Set customer and optional `properties` / `properties_set_once`. |
+| `get_identity()` | NuxieIdentityResult | Coherent `distinct_id`, `anonymous_id`, `is_identified`. |
+| `reset()` | NuxieResult | Sign out and rotate the anonymous identity. |
+| `set_locale(locale = "")` | NuxieResult | Empty restores device locale; native synchronization determines application timing. |
 
-## Journey events
+`is_available()` synchronously checks the native bridge, not connectivity. `get_status()` returns a NuxieStatus with `kind` (UNCONFIGURED, CONFIGURING, READY, SHUTTING_DOWN, FAILED) and optional error. Failed configuration can be followed by explicit shutdown and a fresh configure.
 
-```gdscript
-Nuxie.trigger("level_completed", {
-  "level": 7,
-  "score": 4200,
-})
-```
+NuxieOptions is a Resource with `ios_api_key`, `android_api_key`, `environment` (EnvironmentKind.PRODUCTION or DEVELOPMENT), `log_level` (WARNING, DEBUG, INFO, ERROR, NONE, VERBOSE), and `locale`. Its `billing` defaults to native. Only the running platform's key is required. Options are copied on configuration; changing the original object does not reconfigure native state.
 
-`Nuxie.trigger(event_name, properties := {}) -> void` records the event. Any matching Journey evaluates asynchronously in the native SDK, and Journey evaluation always remains enabled.
+Identity mutations are serialized: await the preceding identify/reset. Queries arriving during a transition fail clearly. Old identity queries cannot authorize a new player. An in-flight consumption may return its original customer's receipt; it does not change the new customer's snapshot.
 
-## Feature access
+## Results and errors
 
-Policy constants:
+Every awaited result has `ok` and `error`. Data results have a typed `value` on success:
 
-- `Nuxie.FEATURE_POLICY_CACHE_FIRST`
-- `Nuxie.FEATURE_POLICY_REMOTE`
+- NuxieIdentityResult → NuxieIdentity.
+- NuxieFeatureResult → NuxieFeatureAccess.
+- NuxieUsageResult → NuxieUsageReceipt.
+- NuxieResult acknowledges an operation with no value.
 
-| Method | Return | Behavior |
+Errors contain `code`, `message`, and copied `details`. Client codes include `unsupportedPlatform`, `invalidArgument`, `notConfigured`, `alreadyConfigured`, `lifecycleBusy`, `identityChanged`, `sdkShutdown`, `operationTimeout`, `invalidResponse`, and `incompatibleBridge`. Native errors retain their bridge code. Do not branch on message text.
+
+The client retains completion before notifying waiters. Normal native calls have a 90-second foreground dispatcher timeout. Timeout/shutdown stops waiting; it does not reverse a completed debit. Retry durable usage with the same operation ID. OS suspension can delay Godot code and therefore timeout delivery until the app resumes.
+
+## Features and consumption
+
+`get_feature_snapshot()` and `get_feature_state(feature_id)` read local state without a request. Snapshot fields include `kind`, `customer_id`, exact decimal-string `identity_generation` and `revision`. `select(feature_id)` returns a NuxieFeatureState with `kind` and nullable `access`; `get_all()` returns a detached dictionary of typed access objects.
+
+FeatureState.Kind values: UNKNOWN, RECONCILING, READY. Access contains `allowed`, `unlimited`, nullable floating-point `balance`, and native `type` (boolean, metered, creditSystem). Missing access and unknown authority are distinct states.
+
+`await check_feature(feature_id, query)` returns a NuxieFeatureResult. NuxieFeatureQuery has `entity_id`, integer `required_balance` (1), and Policy.CACHE_FIRST / REMOTE. Queries do not replace the global snapshot.
+
+`await consume_feature(feature_id, command)` returns a NuxieUsageResult. NuxieFeatureCommand has required `operation_id`, integer `quantity` (1), and optional `entity_id`. Quantity and required balance are in 1…2^53−1. Invalid values are rejected before native invocation. The native consumption contract has no metadata field.
+
+Receipt fields: `customer_id`, `feature_id`, `operation_id`, `quantity`, nullable `occurred_at_ms`, `accepted`, `code`, nullable `balance`, `unlimited`, `active`, `idempotent_replay`. Acceptance authorizes the operation even when the resulting balance is zero. Persist the operation ID before spending; implement game-side idempotency separately.
+
+## Experiences and signals
+
+`await trigger(event_name, properties = {})` acknowledges event acceptance, not UI presentation or Journey completion. `await dismiss()` acknowledges native dismissal. Properties and identity attributes must be finite JSON values with string object keys, no Objects/cycles and at most 32 levels of nesting; integer JSON values stay within the portable exact range.
+
+| Signal | Payload |
+| --- | --- |
+| `status_changed` | NuxieStatus |
+| `identity_changed` | NuxieIdentity |
+| `features_changed` | NuxieFeatureSnapshot |
+| `activity_received` | NuxieActivity: ID, name, timestamps and properties |
+| `app_action_received` | NuxieAppAction: name, payload, typed Experience context |
+| `error_received` | NuxieError for unsolicited protocol errors |
+
+Connect before reading current state. Disconnect on scene exit, even if keeping the Node alive for reuse. Callbacks use the Godot thread. The dispatcher processes at most 128 envelopes per frame and runs through SceneTree pause. The game owns pause/audio/input policy. Native OS suspension is separate from scene pause.
+
+## External checkout
+
+Set `options.billing = NuxieBilling.external(controller)` before configuring. Implement NuxiePurchaseController's `purchase(product)` and `restore()` methods; each can return synchronously or await an existing checkout integration. Return NuxiePurchaseResult.purchased/cancelled/pending/failed(message), or NuxieRestoreResult.restored/no_purchases/failed(message). A missing result fails; native deadlines settle abandoned requests after 60 seconds.
+
+The adapter deduplicates native requests and fences replies by session and deadline. Raw bridge request IDs and completion methods are private. External mode selects app-managed/observer handling: the host finishes/acknowledges transactions, while native provider authority governs verified purchase synchronization. Observe Features for access.
+
+NuxieStoreProduct preserves the selected offer:
+
+| Field | iOS source | Android source |
 | --- | --- | --- |
-| `Nuxie.has_feature(feature_id, required_balance := 1.0, entity_id := "", policy := FEATURE_POLICY_CACHE_FIRST)` | `Dictionary` | Resolves feature access under the selected policy. |
-| `Nuxie.use_feature(feature_id, amount := 1.0, entity_id := "", metadata := {})` | `void` | Records use without waiting for server confirmation. |
-| `Nuxie.use_feature_and_wait(feature_id, amount := 1.0, entity_id := "", set_usage := false, metadata := {})` | `Dictionary` | Resolves after the server returns the authoritative usage result. |
+| platform | ios | android |
+| product_id / store_product_id / placement_id | StoreProduct identifiers | StoreProduct identifiers |
+| display_name / description | name / description | raw ProductDetails name / description |
+| display_price | StoreProduct price | matched base-plan/offer or purchase-option/offer price |
+| product_type | StoreProduct productType | ProductDetails productType |
+| period / period_count / billing_plan | Native subscription metadata | null |
+| eligibility_jws / introductory_terms | Native eligibility and introductory terms | null |
+| base_plan_id / purchase_option_id / offer_id | null | Exact selected identifiers |
+| pricing_phases | null | Matched subscription offer's phases |
 
-Feature access result:
+Nullable platform fields remain nullable. The native purchase result contract accepts an outcome, not a fabricated transaction dictionary. Do not run two owners for the same checkout or interpret checkout initiation as purchased.
 
-```gdscript
-{
-  "allowed": bool,
-  "unlimited": bool,
-  "balance": float | null,
-  "type": "boolean" | "metered" | "creditSystem",
-}
-```
-
-Authoritative usage result:
-
-```gdscript
-{
-  "success": bool,
-  "featureId": String,
-  "amountUsed": float,
-  "message": String | null,
-  "usage": {
-    "current": float,
-    "limit": float | null,
-    "remaining": float | null,
-  } | null,
-  "authoritativeAccess": Dictionary | null,
-}
-```
-
-## Public events
-
-Subscribe and unsubscribe with:
-
-```gdscript
-Nuxie.on("activity", callback)
-Nuxie.off("activity", callback)
-```
-
-The only public event names are:
-
-- `feature_access_changed`
-- `activity`
-- `app_action`
-- `purchase_request`
-- `restore_request`
-
-### `feature_access_changed`
-
-```gdscript
-{
-  "featureId": String,
-  "from": Dictionary | null,
-  "to": Dictionary,
-  "timestampMs": int,
-}
-```
-
-### `activity`
-
-```gdscript
-{
-  "schemaVersion": int,
-  "id": String,
-  "timestampMs": int,
-  "receivedAtMs": int,
-  "name": String,
-  "properties": Dictionary,
-}
-```
-
-Activity property values are strings, integers, floats, or booleans.
-
-### `app_action`
-
-```gdscript
-{
-  "name": String,
-  "payload": Dictionary | null,
-  "experience": {
-    "experienceId": String,
-    "experienceVersion": String | null,
-    "journeyId": String | null,
-  },
-}
-```
-
-App action payload values are strings, integers, floats, or booleans.
-
-### `purchase_request`
-
-```gdscript
-{
-  "request_id": String,
-  "platform": "android" | "ios",
-  "product_id": String,
-  "store_product_id": String,
-  "base_plan_id": String | null,
-  "purchase_option_id": String | null,
-  "offer_id": String | null,
-  "placement_id": String | null,
-  "display_name": String | null,
-  "display_price": String | null,
-  "timestamp_ms": int,
-}
-```
-
-### `restore_request`
-
-```gdscript
-{
-  "request_id": String,
-  "platform": "android" | "ios",
-  "timestamp_ms": int,
-}
-```
-
-## App-managed purchase completion
-
-`Nuxie.set_purchase_controller(on_purchase := Callable(), on_restore := Callable())` stores optional synchronous or asynchronous callbacks. The facade invokes them for native requests and completes the native continuation automatically.
-
-Purchase callback results:
-
-```gdscript
-{"type": "purchased"}
-{"type": "cancelled"}
-{"type": "pending"}
-{"type": "failed", "message": "reason"}
-```
-
-Restore callback results:
-
-```gdscript
-{"type": "restored"}
-{"type": "no_purchases"}
-{"type": "failed", "message": "reason"}
-```
-
-Manual completion methods are also available for event-based hosts:
-
-- `Nuxie.complete_purchase(request_id, result) -> void`
-- `Nuxie.complete_restore(request_id, result) -> void`
-
-## Configuration
-
-`options` accepts the same compact keys on Android and iOS:
-
-| Key | Values | Default |
-| --- | --- | --- |
-| `environment` | `"production"`, `"development"` | `"production"` |
-| `log_level` | `"verbose"`, `"debug"`, `"info"`, `"warning"`, `"error"`, `"none"` | `"warning"` |
-| `enable_console_logging` | `bool` | Native default; iOS only |
-| `redact_sensitive_data` | `bool` | Native default; iOS only |
-| `locale_identifier` | locale string or `null` | system locale |
-| `purchase_handling_mode` | `"full"`, `"observer"` | `"full"` |
-| `test_store_enabled` | `bool` | `false`; iOS development builds only |
-
-Set `use_purchase_controller` to `true` only when callbacks have been registered. The wrapper also enables it automatically when either callback is valid. Purchase delegation does not change transaction ownership; select `observer` explicitly when the app or another billing SDK owns transaction finishing.
+The addon does not require .NET. C# can dynamically consume synchronous state and signals, but this release does not expose an async C# facade; GDScript coroutine state cannot be awaited through a bare GodotObject.Call.

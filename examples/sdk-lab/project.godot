@@ -1,0 +1,22 @@
+config_version=5
+[application]
+config/name="Nuxie SDK Lab"
+config/icon="res://icon.svg"
+run/main_scene="res://startup.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+[autoload]
+Nuxie="*res://addons/nuxie/nuxie.gd"
+[display]
+window/handheld/orientation=1
+window/size/viewport_width=480
+window/size/viewport_height=900
+window/stretch/mode="canvas_items"
+[editor_plugins]
+enabled=PackedStringArray("res://addons/nuxie/plugin.cfg")
+[rendering]
+textures/vram_compression/import_etc2_astc=true
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/default_filters/use_nearest_mipmap_filter=false
+[application/run]
+max_fps=60

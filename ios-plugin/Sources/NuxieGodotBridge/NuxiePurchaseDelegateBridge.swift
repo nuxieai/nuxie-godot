@@ -1,7 +1,9 @@
 import Foundation
-@preconcurrency import Nuxie
 
-final class NuxieGodotPurchaseDelegateBridge: NuxiePurchaseDelegate, @unchecked Sendable {
+#if canImport(Nuxie)
+import Nuxie
+
+final class NuxiePurchaseDelegateBridge: NuxiePurchaseDelegate, @unchecked Sendable {
   private let emit: (String, [String: Any]) -> Void
   private let timeoutSeconds: TimeInterval
   private let lock = NSLock()
@@ -19,24 +21,26 @@ final class NuxieGodotPurchaseDelegateBridge: NuxiePurchaseDelegate, @unchecked 
   func purchase(product: StoreProduct) async -> PurchaseResult {
     let requestId = UUID().uuidString
     let payload: [String: Any] = [
-      "request_id": requestId,
-      "platform": "ios",
-      "product_id": product.productId,
-      "store_product_id": product.storeProductId,
-      "base_plan_id": NSNull(),
-      "purchase_option_id": NSNull(),
-      "offer_id": NSNull(),
-      "placement_id": product.placementId,
-      "display_name": product.name,
-      "display_price": product.price,
-      "timestamp_ms": bridgeNowMs(),
+      "requestId": requestId,
+      "deadlineMs": Int((Date().timeIntervalSince1970 + timeoutSeconds) * 1_000),
+      "product": [
+        "platform": "ios", "productId": product.productId, "storeProductId": product.storeProductId,
+        "placementId": product.placementId, "displayName": product.name, "displayPrice": product.price,
+        "description": product.description, "productType": product.productType.rawValue,
+        "period": nuxieNullable(product.period?.rawValue), "periodCount": nuxieNullable(product.periodCount),
+        "eligibilityJws": nuxieNullable(product.introductoryOfferEligibilityJWS), "billingPlan": product.billingPlan.rawValue,
+        "introductoryTerms": nuxieNullable(product.introductoryTerms.map { terms in [
+          "price": terms.price, "period": terms.period.rawValue, "periodCount": terms.periodCount,
+          "cycles": terms.cycles, "paymentMode": terms.paymentMode.rawValue, "displayDuration": terms.trialPeriodText,
+        ] as [String: Any] }),
+      ] as [String: Any],
     ]
 
     return await withCheckedContinuation { continuation in
       lock.withLock {
         purchaseContinuations[requestId] = continuation
       }
-      emit("purchase_request", payload)
+      emit("purchase", payload)
       schedulePurchaseTimeout(requestId: requestId)
     }
   }
@@ -44,16 +48,17 @@ final class NuxieGodotPurchaseDelegateBridge: NuxiePurchaseDelegate, @unchecked 
   func restorePurchases() async -> RestoreResult {
     let requestId = UUID().uuidString
     let payload: [String: Any] = [
-      "request_id": requestId,
+      "requestId": requestId,
+      "deadlineMs": Int((Date().timeIntervalSince1970 + timeoutSeconds) * 1_000),
       "platform": "ios",
-      "timestamp_ms": bridgeNowMs(),
+      "timestamp_ms": Int(Date().timeIntervalSince1970 * 1_000),
     ]
 
     return await withCheckedContinuation { continuation in
       lock.withLock {
         restoreContinuations[requestId] = continuation
       }
-      emit("restore_request", payload)
+      emit("restore", payload)
       scheduleRestoreTimeout(requestId: requestId)
     }
   }
@@ -72,7 +77,7 @@ final class NuxieGodotPurchaseDelegateBridge: NuxiePurchaseDelegate, @unchecked 
     continuation?.resume(returning: restoreResult(from: payload))
   }
 
-  func cancelPending(reason: String) {
+  func cancelPending() {
     let (purchases, restores) = lock.withLock {
       let purchases = Array(purchaseContinuations.values)
       let restores = Array(restoreContinuations.values)
@@ -80,8 +85,8 @@ final class NuxieGodotPurchaseDelegateBridge: NuxiePurchaseDelegate, @unchecked 
       restoreContinuations.removeAll()
       return (purchases, restores)
     }
-    purchases.forEach { $0.resume(returning: .failed(bridgeError(reason))) }
-    restores.forEach { $0.resume(returning: .failed(bridgeError(reason))) }
+    purchases.forEach { $0.resume(returning: .failed(bridgeError("sdk_shutdown"))) }
+    restores.forEach { $0.resume(returning: .failed(bridgeError("sdk_shutdown"))) }
   }
 
   private func schedulePurchaseTimeout(requestId: String) {
@@ -107,7 +112,7 @@ final class NuxieGodotPurchaseDelegateBridge: NuxiePurchaseDelegate, @unchecked 
   }
 
   private func purchaseResult(from payload: [String: Any]) -> PurchaseResult {
-    switch (payload["type"] as? String)?.lowercased() {
+    switch (payload["type"] as? String) {
     case "purchased": .purchased
     case "cancelled": .cancelled
     case "pending": .pending
@@ -116,18 +121,19 @@ final class NuxieGodotPurchaseDelegateBridge: NuxiePurchaseDelegate, @unchecked 
   }
 
   private func restoreResult(from payload: [String: Any]) -> RestoreResult {
-    switch (payload["type"] as? String)?.lowercased() {
+    switch (payload["type"] as? String) {
     case "restored": .restored
-    case "no_purchases": .noPurchases
+    case "noPurchases": .noPurchases
     default: .failed(bridgeError((payload["message"] as? String) ?? "restore_failed"))
     }
   }
 
   private func bridgeError(_ message: String) -> Error {
     NSError(
-      domain: "ai.nuxie.godot",
+      domain: "io.nuxie.godot",
       code: 1,
       userInfo: [NSLocalizedDescriptionKey: message]
     )
   }
 }
+#endif

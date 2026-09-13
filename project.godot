@@ -1,7 +1,6 @@
+config_version=5
 [application]
-config/name="Nuxie Godot SDK Contract Tests"
-run/main_scene="res://tests/godot/facade-contract-test.tscn"
-config/features=PackedStringArray("4.5")
-
+config/name="Nuxie SDK Tests"
+config/features=PackedStringArray("4.7", "GL Compatibility")
 [rendering]
 renderer/rendering_method="gl_compatibility"

@@ -1,28 +1,18 @@
 import Foundation
-@preconcurrency import Nuxie
+
+func nuxieNullable(_ value: Any?) -> Any {
+  value ?? NSNull()
+}
+
+#if canImport(Nuxie)
+import Nuxie
 
 @MainActor
-final class NuxieGodotDelegateBridge: NuxieDelegate {
+final class NuxieDelegateBridge: NuxieDelegate {
   private let emit: (String, [String: Any]) -> Void
 
   init(emit: @escaping (String, [String: Any]) -> Void) {
     self.emit = emit
-  }
-
-  func featureAccessDidChange(
-    _ featureId: String,
-    from oldValue: FeatureAccess?,
-    to newValue: FeatureAccess
-  ) {
-    emit(
-      "feature_access_changed",
-      [
-        "featureId": featureId,
-        "from": nullable(oldValue.map(featureAccessDictionary)),
-        "to": featureAccessDictionary(newValue),
-        "timestampMs": bridgeNowMs(),
-      ]
-    )
   }
 
   func nuxieDidEmit(_ info: NuxieActivityInfo) {
@@ -41,18 +31,27 @@ final class NuxieGodotDelegateBridge: NuxieDelegate {
 
   func nuxie(_ sdk: NuxieSDK, didRequestAppAction action: AppAction) {
     emit(
-      "app_action",
+      "appAction",
       [
         "name": action.name,
-        "payload": nullable(action.payload?.mapValues(appActionValue)),
+        "payload": nuxieNullable(action.payload?.mapValues(appActionValue)),
         "experience": [
           "experienceId": action.experience.experienceId,
-          "experienceVersion": nullable(action.experience.experienceVersion),
-          "journeyId": nullable(action.experience.journeyId),
+          "experienceVersion": nuxieNullable(action.experience.experienceVersion),
+          "journeyId": nuxieNullable(action.experience.journeyId),
         ],
       ]
     )
   }
+}
+
+func featureAccessDictionary(_ access: FeatureAccess) -> [String: Any] {
+  [
+    "allowed": access.allowed,
+    "unlimited": access.unlimited,
+    "balance": nuxieNullable(access.balance),
+    "type": access.type.rawValue,
+  ]
 }
 
 private func activityValue(_ value: NuxieActivityValue) -> Any {
@@ -61,7 +60,7 @@ private func activityValue(_ value: NuxieActivityValue) -> Any {
   case .int(let value): value
   case .double(let value): value
   case .bool(let value): value
-  @unknown default: String(describing: value)
+  @unknown default: NSNull()
   }
 }
 
@@ -71,6 +70,7 @@ private func appActionValue(_ value: AppActionValue) -> Any {
   case .int(let value): value
   case .double(let value): value
   case .bool(let value): value
-  @unknown default: String(describing: value)
+  @unknown default: NSNull()
   }
 }
+#endif
