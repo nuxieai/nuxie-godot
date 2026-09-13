@@ -133,7 +133,12 @@ func _connect_sdk() -> bool:
 	var deadline := Time.get_ticks_msec() + 20000
 	while Nuxie.get_feature_snapshot().kind != NuxieFeatureState.Kind.READY and Time.get_ticks_msec() < deadline:
 		await get_tree().process_frame
-	return _record("Feature authority ready", Nuxie.get_feature_snapshot().kind == NuxieFeatureState.Kind.READY)
+	var ready := _record("Feature authority ready", Nuxie.get_feature_snapshot().kind == NuxieFeatureState.Kind.READY)
+	if ready:
+		var access := await _query(_settings.get("entityA", ""))
+		if access.ok:
+			_energy.text = "Energy %s  ·  Score %d" % [str(access.value.balance), _score]
+	return ready
 
 func _query(entity: String) -> NuxieFeatureResult:
 	var query := NuxieFeatureQuery.new()
@@ -200,14 +205,19 @@ func _play_turn() -> void:
 	if _running or _owns_pause:
 		return
 	_running = true
+	var identity := await Nuxie.get_identity()
+	if not identity.ok or not identity.value.is_identified or identity.value.distinct_id != _settings.get("customerId"):
+		_note("Connect the selected player before spending or recovering a turn.")
+		_running = false
+		return
 	var pending := _read_json("user://game-action.json")
 	if pending.is_empty():
-		pending = {"id": Crypto.new().generate_random_bytes(16).hex_encode(), "customer": _settings.get("customerId"), "feature": _settings.get("featureId"), "entity": _settings.get("entityA")}
+		pending = {"id": Crypto.new().generate_random_bytes(16).hex_encode(), "customer": identity.value.distinct_id, "feature": _settings.get("featureId"), "entity": _settings.get("entityA")}
 		if not _write_json("user://game-action.json", pending):
 			_note("Could not save this turn. No energy was spent.")
 			_running = false
 			return
-	if pending.get("customer") != _settings.get("customerId"):
+	if pending.get("customer") != identity.value.distinct_id:
 		_note("Saved turn belongs to another player; reconnect that player to recover it.")
 		_running = false
 		return
@@ -215,6 +225,10 @@ func _play_turn() -> void:
 	command.operation_id = pending.id
 	command.entity_id = pending.entity
 	var result := await Nuxie.consume_feature(pending.feature, command)
+	if result.ok and result.value.customer_id != pending.customer:
+		_note("Receipt customer does not match saved turn. Preserving it for recovery.")
+		_running = false
+		return
 	if _result("Play turn", result) and result.value.accepted:
 		var progress := _read_json("user://progress.json")
 		if progress.get("lastAction") != pending.id:
@@ -286,6 +300,11 @@ func _reset() -> void:
 
 func _shutdown() -> void:
 	_result("Shutdown", await Nuxie.shutdown())
+	_screens.clear()
+	if _owns_pause:
+		get_tree().paused = _saved_pause
+		_owns_pause = false
+	_features_changed(Nuxie.get_feature_snapshot())
 
 func _change_scene() -> void:
 	get_tree().change_scene_to_file("res://startup.tscn")

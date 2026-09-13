@@ -95,7 +95,7 @@ func configure(options: NuxieOptions) -> NuxieResult:
 	var response: Dictionary = await _request("configure", {"configuration": JSON.stringify(config)})
 	if not response.has("error"):
 		var data := Wire.object(response.get("result"))
-		if data.get("contract") != 1 or data.get("session") != _session or not Wire.snapshot(data.get("snapshot", {})):
+		if data.get("contract") != 1 or data.get("session") != _session or not data.get("snapshot") is Dictionary or not Wire.snapshot(data.snapshot):
 			response = _error_wire("incompatibleBridge", "Native configuration response does not match the addon")
 		else:
 			_admit(data.snapshot)
@@ -175,11 +175,12 @@ func _change_identity(method: String, arguments: Dictionary) -> NuxieResult:
 				_admit(_buffered)
 	if epoch != _identity_epoch:
 		return _failure("identityChanged", "Identity changed during state notification")
-	_buffered.clear()
 	if not response.has("error"):
 		var identity := await get_identity()
 		if not identity.ok:
 			return NuxieResult.new(identity.error)
+	else:
+		_buffered.clear()
 	return _ack(response)
 
 func get_identity() -> NuxieIdentityResult:
@@ -197,7 +198,14 @@ func get_identity() -> NuxieIdentityResult:
 	identity_changed.emit(NuxieIdentity.new(data))
 	if epoch != _identity_epoch:
 		return NuxieIdentityResult.new(null, NuxieError.new("identityChanged", "Identity changed during notification"))
-	features_changed.emit(get_feature_snapshot())
+	if not _buffered.is_empty():
+		var buffered := _buffered.duplicate(true)
+		_buffered.clear()
+		_admit(buffered)
+	else:
+		features_changed.emit(get_feature_snapshot())
+	if epoch != _identity_epoch:
+		return NuxieIdentityResult.new(null, NuxieError.new("identityChanged", "Identity changed during feature notification"))
 	return NuxieIdentityResult.new(NuxieIdentity.new(data))
 
 func trigger(event_name: String, properties: Dictionary = {}) -> NuxieResult:
@@ -306,6 +314,10 @@ func _receive(raw: Variant) -> void:
 func _admit(data: Dictionary) -> void:
 	if not Wire.snapshot(data):
 		error_received.emit(NuxieError.new("invalidResponse", "Invalid feature snapshot"))
+		return
+	if _customer.is_empty():
+		if _buffered.is_empty() or _newer(data, _buffered):
+			_buffered = data.duplicate(true)
 		return
 	if not _snapshot.is_empty() and not _newer(data, _snapshot):
 		return

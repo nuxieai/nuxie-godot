@@ -23,5 +23,7 @@ def run(args, cwd=root):
         raise SystemExit('Check failed: ' + ' '.join(args))
 run([engine, '--headless', '--editor', '--path', str(root), '--import'])
 run([engine, '--headless', '--path', str(root), '--script', 'tests/godot/client-test.gd'])
+if (root / 'examples/sdk-lab/addons/nuxie/native-pins.json').is_file():
+    run([engine, '--headless', '--editor', '--path', str(root / 'examples/sdk-lab'), '--import'])
 run(['./gradlew', ':android-plugin:testDebugUnitTest', ':android-plugin:lint', ':android-plugin:assembleDebug', ':android-plugin:assembleRelease'])
 run(['python3', 'scripts/check-ios.py'])
