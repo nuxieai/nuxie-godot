@@ -8,9 +8,16 @@ Qualification date: 2026-09-13. This record separates executed checks from relea
 | Android bridge | Pinned native dependency, debug/release AARs | Unit tests, Android lint and both builds pass |
 | iOS bridge | Pinned native dependency, iOS simulator | Three native tests pass; device/simulator debug/release frameworks build |
 | Android player | Godot 4.7.2 standard templates, emulator | 21 live API checks pass against a local development app |
-| iOS player | Godot 4.7.2 source-built ARM64 simulator engine | The same 21 live API checks pass |
+| iOS player | Godot 4.7.2 source-built ARM64 simulator engine | All 21 checks pass on a clean install; warm startup is blocked below |
 
 The live checks use the public addon and actual native clients: configure, identify, feature readiness, remote entity queries, consumption, retrying the same operation ID, receipt equality, exactly one debit, unchanged second entity, locale override/reset, anonymous identity rotation and reidentification. They do not mock backend grants or purchase outcomes. The Lab writes `user://validation.json` with every assertion.
+
+## Known release blockers
+
+- **iOS warm startup:** a retained authenticated profile can deadlock native Journey recovery before EventLog readiness opens. Configure/identify complete, but native snapshots remain UNKNOWN; clean installation passes. The native-layer dependency cycle is tracked in [UNIV-3158](https://universe.basis.dev/issue/UNIV-3158). Do not erase customer data or fabricate READY to work around it.
+- **Native Experience qualification:** local publication failed with `journey-release-signing.config-required`; a supported local signing/trust path is tracked in [UNIV-3157](https://universe.basis.dev/issue/UNIV-3157). Native screen/App Action/external-checkout-under-overlay qualification remains incomplete.
+
+The release-mode Android APK was built with local development signing. All eight native libraries passed 16 KiB ELF LOAD alignment and uncompressed ZIP entry alignment, with one C++ shared runtime per ABI and no iOS framework resources leaked into Android assets. This is not Play Store signing or physical-device evidence.
 
 ## Apple Silicon simulator input
 

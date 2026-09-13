@@ -1,10 +1,12 @@
 # Nuxie for Godot
 
-**0.4.0 · Godot 4.7.2 · iOS and Android**
+**0.4.0 release candidate · Godot 4.7.2 · iOS and Android**
 
 Bring native Experiences, purchases and feature access into your Godot game—with one addon for iOS and Android.
 
 Write ordinary GDScript. Let Nuxie's native SDKs deliver Experiences and manage access. Keep gameplay, scene navigation and pause behavior in your game.
+
+Release qualification currently has an iOS warm-start blocker and incomplete native UI/store coverage. See the [measured results and tracked blockers](docs/testing-and-validation.md).
 
 ## Install once, export to both platforms
 
