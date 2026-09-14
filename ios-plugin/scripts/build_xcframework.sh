@@ -25,6 +25,7 @@ for variant in release debug; do
   configuration=Release
   cpp_flags=(-DNS_BLOCK_ASSERTIONS=1)
   if [[ "$variant" == debug ]]; then configuration=Debug; cpp_flags+=(-DDEBUG_ENABLED); fi
+  framework_args=()
   for platform in ios simulator; do
     sdk=iphoneos
     destination='generic/platform=iOS'
@@ -40,6 +41,8 @@ for variant in release debug; do
       ARCHS=arm64 SKIP_INSTALL=NO BUILD_LIBRARY_FOR_DISTRIBUTION=YES
     framework="$archive/Products/usr/local/lib/NuxieGodotBridge.framework"
     if [[ ! -d "$framework" ]]; then framework="$archive/Products/Library/Frameworks/NuxieGodotBridge.framework"; fi
+    test -d "$framework"
+    framework_args+=(-framework "$framework")
     resource="$DERIVED_DATA/Build/Intermediates.noindex/ArchiveIntermediates/NuxieGodotBridge/IntermediateBuildFilesPath/UninstalledProducts/$sdk/Nuxie_Nuxie.bundle"
     test -d "$resource"
     ditto "$resource" "$framework/Nuxie_Nuxie.bundle"
@@ -55,8 +58,7 @@ for variant in release debug; do
   # Delete only the two generated artifacts being replaced; retain the incremental build cache.
   rm -rf "$OUTPUT_DIR/NuxieGodotBridge.$variant.xcframework" "$OUTPUT_DIR/nuxie_godot_plugin.$variant.xcframework"
   xcodebuild -create-xcframework \
-    -framework "$OUTPUT_DIR/$variant-ios.xcarchive/Products/usr/local/lib/NuxieGodotBridge.framework" \
-    -framework "$OUTPUT_DIR/$variant-simulator.xcarchive/Products/usr/local/lib/NuxieGodotBridge.framework" \
+    "${framework_args[@]}" \
     -output "$OUTPUT_DIR/NuxieGodotBridge.$variant.xcframework"
   xcodebuild -create-xcframework \
     -library "$OUTPUT_DIR/plugin-build/$variant-ios/plugin.a" \

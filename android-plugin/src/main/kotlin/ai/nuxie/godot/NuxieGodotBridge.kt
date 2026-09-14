@@ -90,7 +90,7 @@ class NuxieGodotBridge(activity: android.app.Activity, private val callback: Cal
     }
   }
   private fun configure(configuration: String, promise: Promise) = run(promise) {
-    if (!android.os.Build.SUPPORTED_ABIS.any { it == "arm64-v8a" || it == "x86_64" }) throw BridgeFailure("unsupportedArchitecture", "Nuxie requires a 64-bit Android device")
+    if (!android.os.Process.is64Bit()) throw BridgeFailure("unsupportedArchitecture", "Nuxie requires a 64-bit Android process")
     val input = JSONObject(configuration)
     if (input.getInt("contract") != 1) throw BridgeFailure("incompatibleBridge", "Rebuild the app with the matching native SDK")
     val attached = input.getString("session")
