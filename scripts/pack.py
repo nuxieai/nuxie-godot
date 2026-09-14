@@ -12,16 +12,20 @@ stage = root / '.native/package'
 addon = stage / 'addons/nuxie'
 if stage.exists():
     shutil.rmtree(stage)
-shutil.copytree(root / 'addons/nuxie', addon, ignore=shutil.ignore_patterns('.DS_Store', '.godot'))
+shutil.copytree(root / 'addons/nuxie', addon, ignore=shutil.ignore_patterns('.DS_Store', '.godot', 'maven'))
 for name in [f'{base}.{variant}.xcframework' for base in ['NuxieGodotBridge', 'nuxie_godot_plugin'] for variant in ['debug', 'release']]:
     source = root / 'ios-plugin/.build/xcframework' / name
     if not source.is_dir():
         raise SystemExit('Prepare iOS artifacts first: ' + str(source))
     shutil.copytree(source, addon / 'ios' / name, dirs_exist_ok=True)
 repo = root / '.native/maven'
-if not repo.is_dir():
-    raise SystemExit('Prepare the pinned native Android Maven repository first')
-shutil.copytree(repo, addon / 'android/maven', dirs_exist_ok=True)
+version = '0.2.0-' + pins['android']['revision']
+coordinate = Path('ai/nuxie/nuxie-android') / version
+for extension in ('aar', 'pom', 'module'):
+    if not (repo / coordinate / f'nuxie-android-{version}.{extension}').is_file():
+        raise SystemExit('Prepare the pinned native Android Maven coordinate first: ' + str(coordinate))
+# The build cache may retain older pins. Exact versions need no repository-level metadata.
+shutil.copytree(repo / coordinate, addon / 'android/maven' / coordinate)
 for variant in ['debug', 'release']:
     if not (addon / f'android/bin/{variant}/NuxieGodot-{variant}.aar').is_file():
         raise SystemExit('Build both Android bridge variants before packing')
