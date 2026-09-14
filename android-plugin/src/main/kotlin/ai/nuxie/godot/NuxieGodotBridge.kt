@@ -19,6 +19,8 @@ class NuxieGodotBridge(activity: android.app.Activity, private val callback: Cal
     const val NAME = "Nuxie"
     private var owner = WeakReference<NuxieGodotBridge>(null)
     private var configurationKey: String? = null
+    private val lifecycleScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var shutdownOperation: Deferred<Unit>? = null
   }
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
   private var session: String? = null
@@ -90,6 +92,7 @@ class NuxieGodotBridge(activity: android.app.Activity, private val callback: Cal
     }
   }
   private fun configure(configuration: String, promise: Promise) = run(promise) {
+    if (shutdownOperation != null) throw BridgeFailure("lifecycleBusy", "Await native shutdown before configuring")
     if (!android.os.Process.is64Bit()) throw BridgeFailure("unsupportedArchitecture", "Nuxie requires a 64-bit Android process")
     val input = JSONObject(configuration)
     if (input.getInt("contract") != 1) throw BridgeFailure("incompatibleBridge", "Rebuild the app with the matching native SDK")
@@ -99,6 +102,7 @@ class NuxieGodotBridge(activity: android.app.Activity, private val callback: Cal
     input.remove("session")
     val key = JSONObject(input.toMap().toSortedMap()).toString()
     if (owner.get() != null && owner.get() !== this) throw BridgeFailure("engineAlreadyAttached", "Another runtime owns Nuxie")
+    if (!Nuxie.isSetup) configurationKey = null
     if (configurationKey != null && configurationKey != key) throw BridgeFailure("alreadyConfigured", "Shutdown before changing configuration")
     if (Nuxie.isSetup && configurationKey == null) throw BridgeFailure("alreadyConfigured", "Nuxie was configured outside Godot")
     owner = WeakReference(this); session = attached
@@ -133,11 +137,33 @@ class NuxieGodotBridge(activity: android.app.Activity, private val callback: Cal
       throw error
     }
   }
-  private fun shutdown(session: String, promise: Promise) = run(promise, session) {
+  private fun shutdown(session: String, promise: Promise) = run(promise) {
+    require(session.isNotBlank())
+    shutdownOperation?.let { it.await(); return@run null }
+    if (owner.get() == null && configurationKey == null && !Nuxie.isSetup) {
+      this.session = null
+      return@run null
+    }
+    // A replacement engine can tear down Godot's retained, unowned setup.
+    if (owner.get() == null && configurationKey != null) {
+      owner = WeakReference(this)
+      this.session = session
+    }
+    if (owner.get() !== this || this.session != session) throw BridgeFailure("sessionExpired", "This runtime does not own the native setup")
     snapshotJob?.cancel(); purchases.cancelPending("shutdown")
-    withContext(Dispatchers.Default) { Nuxie.shutdown() }
-    if (Nuxie.listener === listener) Nuxie.listener = null
-    this.session = null; owner.clear(); configurationKey = null; null
+    // Native teardown outlives cancellation of the destroyed runtime's scope.
+    val operation = lifecycleScope.async(start = CoroutineStart.LAZY) {
+      try {
+        withContext(Dispatchers.Default) { Nuxie.shutdown() }
+        if (Nuxie.listener === listener) Nuxie.listener = null
+        this@NuxieGodotBridge.session = null; owner.clear(); configurationKey = null
+      } finally {
+        shutdownOperation = null
+      }
+    }
+    shutdownOperation = operation
+    operation.await()
+    null
   }
   private fun identify(session: String, customerId: String, properties: String, promise: Promise) = run(promise, session) {
     val options = JSONObject(properties)

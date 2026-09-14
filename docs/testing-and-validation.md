@@ -4,9 +4,9 @@ Live qualification: 2026-09-13. Review regression checks and native artifact reb
 
 | Layer | Configuration | Evidence |
 | --- | --- | --- |
-| GDScript client | Godot 4.7.2, headless | 62 checks: lifecycle, stale snapshots, detached values, JSON validation, checkout correlation, timeout, paused dispatch and shutdown |
+| GDScript client | Godot 4.7.2, headless | 69 checks: lifecycle, stale snapshots, detached values, JSON validation, checkout correlation, timeout, paused dispatch and shutdown |
 | Android bridge | Pinned native dependency, debug/release AARs | Unit tests, Android lint and both builds pass |
-| iOS bridge | Pinned native dependency, iOS simulator | Three native tests pass; device/simulator debug/release frameworks build |
+| iOS bridge | Pinned native dependency, iOS simulator | Six native tests pass; device/simulator debug/release frameworks build |
 | Android player | Godot 4.7.2 standard templates, emulator | 21 live API checks pass against a local development app |
 | iOS player | Godot 4.7.2 source-built ARM64 simulator engine | 21 checks pass on a clean install and on three consecutive warm launches with the authenticated cache retained |
 

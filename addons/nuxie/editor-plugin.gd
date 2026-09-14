@@ -23,6 +23,18 @@ func _exit_tree() -> void:
 		remove_export_plugin(_exporter)
 	if _owns_autoload and str(ProjectSettings.get_setting("autoload/Nuxie", "")).trim_prefix("*") == AUTOLOAD:
 		remove_autoload_singleton("Nuxie")
+	_remove_ios_descriptor()
+
+static func _remove_ios_descriptor(target: String = "res://ios/plugins/nuxie/nuxie_godot.gdip") -> void:
+	var marker := target + ".sha256"
+	if not FileAccess.file_exists(marker):
+		return
+	if FileAccess.file_exists(target):
+		if FileAccess.get_file_as_string(marker) != FileAccess.get_sha256(target):
+			return
+		if DirAccess.remove_absolute(target) != OK:
+			return
+	DirAccess.remove_absolute(marker)
 
 func _stage_ios_descriptor() -> void:
 	var target := "res://ios/plugins/nuxie/nuxie_godot.gdip"

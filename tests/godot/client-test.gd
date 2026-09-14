@@ -4,6 +4,7 @@ const ExportPlugin = preload("res://addons/nuxie/android/export_plugin.gd")
 const Client = preload("res://addons/nuxie/nuxie.gd")
 const Wire = preload("res://addons/nuxie/internal/wire.gd")
 const Waiter = preload("res://addons/nuxie/internal/waiter.gd")
+const EditorIntegration = preload("res://addons/nuxie/editor-plugin.gd")
 var failures := 0
 var checks := 0
 
@@ -16,6 +17,7 @@ class Bridge extends RefCounted:
 	var hold := ""
 	var malformed := false
 	var bad_snapshot := false
+	var shutdown_error := ""
 	var java_checks := 0
 	func has_java_method(method: String) -> bool:
 		java_checks += 1
@@ -37,7 +39,10 @@ class Bridge extends RefCounted:
 				session = config.session
 				result = {"contract": 1, "session": session, "snapshot": null if bad_snapshot else snapshot()}
 			"shutdown":
-				if args.session != session:
+				if not shutdown_error.is_empty():
+					messages.append(JSON.stringify({"requestId": request.requestId, "error": {"code": shutdown_error, "message": "Native setup is still owned"}}))
+					return
+				if not session.is_empty() and args.session != session:
 					messages.append(JSON.stringify({"requestId": request.requestId, "error": {"code": "sessionExpired", "message": "Session already detached"}}))
 					return
 				session = ""
@@ -76,6 +81,30 @@ func _initialize() -> void:
 	_run.call_deferred()
 
 func _run() -> void:
+	var descriptor := "user://nuxie-descriptor-test.gdip"
+	var marker := descriptor + ".sha256"
+	for changed in [false, true]:
+		var file := FileAccess.open(descriptor, FileAccess.WRITE)
+		file.store_string("managed descriptor")
+		file.close()
+		file = FileAccess.open(marker, FileAccess.WRITE)
+		file.store_string(FileAccess.get_sha256(descriptor))
+		file.close()
+		if changed:
+			file = FileAccess.open(descriptor, FileAccess.WRITE)
+			file.store_string("user modification")
+			file.close()
+		EditorIntegration._remove_ios_descriptor(descriptor)
+		check(FileAccess.file_exists(descriptor) == changed and FileAccess.file_exists(marker) == changed, "Disable removes only the unchanged managed descriptor and marker")
+	DirAccess.remove_absolute(marker)
+	EditorIntegration._remove_ios_descriptor(descriptor)
+	check(FileAccess.get_file_as_string(descriptor) == "user modification", "Disable preserves a descriptor without an ownership marker")
+	DirAccess.remove_absolute(descriptor)
+	var orphan_marker := FileAccess.open(marker, FileAccess.WRITE)
+	orphan_marker.store_string("previous checksum")
+	orphan_marker.close()
+	EditorIntegration._remove_ios_descriptor(descriptor)
+	check(not FileAccess.file_exists(marker), "Disable removes an orphan ownership marker")
 	for pair in [
 		["/Users/Game Projects/a#b", "file:///Users/Game%20Projects/a%23b"],
 		["C:/Game Projects/a#b", "file:///C:/Game%20Projects/a%23b"],
@@ -166,6 +195,13 @@ func _run() -> void:
 	check(interrupted_results.size() == 1 and interrupted_results[0].error.code == "sdkShutdown", "Shutdown settles outstanding commands")
 	check(client.get_feature_state("premium").kind == NuxieFeatureState.Kind.UNKNOWN, "Shutdown invalidates access")
 	check((await client.configure(options)).ok, "Reconfigure")
+	var expired_session: String = client._session
+	bridge.shutdown_error = "sessionExpired"
+	var expired_shutdown := await client.shutdown()
+	check(not expired_shutdown.ok and expired_shutdown.error.code == "sessionExpired", "An expired session does not prove native teardown")
+	check(client.get_status().kind == NuxieStatus.Kind.FAILED and client._session == expired_session, "Unconfirmed teardown retains recovery ownership")
+	bridge.shutdown_error = ""
+	check((await client.shutdown()).ok and (await client.configure(options)).ok, "Explicit native acknowledgement permits reconfiguration")
 	for native_completed in [false, true]:
 		bridge.hold = "shutdown"
 		var failed_shutdown: Array = []
@@ -193,7 +229,7 @@ func _run() -> void:
 		bridge.hold = ""
 		if native_completed:
 			bridge.session = ""
-		check((await client.shutdown()).ok, "Retry detaches or confirms an already expired session")
+		check((await client.shutdown()).ok, "Retry explicitly confirms native teardown")
 		check(bridge.requests[-1].method == "shutdown" and bridge.requests[-1].arguments.session == retained_session, "Retry sends the retained native session")
 		check((await client.configure(options)).ok, "Configure after recovered shutdown")
 	await client.shutdown()

@@ -13,6 +13,7 @@ public final class NuxieGodotRuntime: NSObject {
   private var snapshotSubscription: AnyCancellable?
   private static weak var owner: NuxieGodotRuntime?
   private static var configurationKey: String?
+  private static var shutdownOperation: Task<Void, Never>?
   private lazy var purchases = NuxiePurchaseDelegateBridge { [weak self] name, payload in
     Task { @MainActor [weak self] in self?.send(name, payload) }
   }
@@ -45,7 +46,7 @@ public final class NuxieGodotRuntime: NSObject {
     resolve: @escaping (Any?) -> Void, reject: @escaping (String, String, NSError?) -> Void) {
     Task { @MainActor in
       do {
-        if method != "configure" {
+        if method != "configure" && method != "shutdown" {
           guard Self.owner === self, let session = self.session, arguments["session"] as? String == session else {
             throw failure("sessionExpired", "Configure Nuxie in this Godot runtime before calling its API")
           }
@@ -53,6 +54,7 @@ public final class NuxieGodotRuntime: NSObject {
         let sdk = NuxieSDK.shared
         switch method {
         case "configure":
+          guard Self.shutdownOperation == nil else { throw failure("lifecycleBusy", "Await native shutdown before configuring") }
           let input = try object(arguments["configuration"])
           guard input["contract"] as? Int == 1 else { throw failure("incompatibleBridge", "Rebuild the app with the matching Nuxie native module") }
           let session = try required(input, "session")
@@ -60,6 +62,7 @@ public final class NuxieGodotRuntime: NSObject {
           var keyInput = input; keyInput.removeValue(forKey: "session")
           let key = try encode(keyInput)
           if let owner = Self.owner, owner !== self { throw failure("engineAlreadyAttached", "Another runtime owns Nuxie") }
+          if !sdk.isSetup { Self.configurationKey = nil }
           if let previous = Self.configurationKey, previous != key { throw failure("alreadyConfigured", "Shutdown before changing Nuxie configuration") }
           if sdk.isSetup && Self.configurationKey == nil { throw failure("alreadyConfigured", "Nuxie was configured outside Godot") }
           Self.owner = self
@@ -95,11 +98,36 @@ public final class NuxieGodotRuntime: NSObject {
           resolve(try encode(["contract": 1, "session": session, "nativeVersion": sdk.version,
             "snapshot": self.snapshot(sdk.features.snapshot)]))
         case "shutdown":
+          let requestedSession = try required(arguments, "session")
+          if let operation = Self.shutdownOperation {
+            await operation.value
+            resolve(nil)
+            break
+          }
+          if Self.owner == nil && Self.configurationKey == nil && !sdk.isSetup {
+            self.session = nil
+            resolve(nil)
+            break
+          }
+          // A destroyed engine leaves Godot's native setup alive without an owner.
+          // Its replacement may claim teardown, but never another live engine's setup.
+          if Self.owner == nil && Self.configurationKey != nil {
+            Self.owner = self
+            self.session = requestedSession
+          }
+          guard Self.owner === self, self.session == requestedSession else {
+            throw failure("sessionExpired", "This runtime does not own the native setup")
+          }
           self.snapshotSubscription?.cancel()
           self.purchases.cancelPending()
-          await sdk.shutdown()
-          sdk.delegate = nil
-          self.session = nil; Self.owner = nil; Self.configurationKey = nil
+          let operation = Task { @MainActor in
+            await sdk.shutdown()
+            sdk.delegate = nil
+            self.session = nil; Self.owner = nil; Self.configurationKey = nil
+            Self.shutdownOperation = nil
+          }
+          Self.shutdownOperation = operation
+          await operation.value
           resolve(nil)
         case "identify":
           let options = try object(arguments["properties"])

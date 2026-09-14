@@ -6,7 +6,7 @@ Use Godot 4.7.2 and matching templates. Android players require API 24+, Gradle 
 
 Extract the prepared ZIP into the game root, enable Nuxie under Project Settings → Plugins, and select the NuxieGodot iOS export plugin. Android uses the local Maven repository included in the addon, plus ordinary transitive dependencies fetched by Gradle. The Godot engine is compile-only for the bridge and is supplied by the export template.
 
-The EditorPlugin owns its autoload registration and stages an iOS descriptor under `ios/plugins/nuxie`. It preserves conflicting user-owned registrations/files. Native frameworks stay under `addons/nuxie/ios`; the exporter chooses the debug/release Swift framework, and Godot selects the matching singleton adapter. Native callbacks enter a value queue and are drained on the engine thread.
+The EditorPlugin owns its autoload registration and stages an iOS descriptor under `ios/plugins/nuxie`. It preserves conflicting user-owned registrations/files. Disabling the plugin removes its unchanged managed iOS descriptor and checksum marker. Native frameworks stay under `addons/nuxie/ios`; the exporter chooses the debug/release Swift framework, and Godot selects the matching singleton adapter. Native callbacks enter a value queue and are drained on the engine thread.
 
 ## Source checkout
 

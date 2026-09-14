@@ -141,9 +141,9 @@ func shutdown() -> NuxieResult:
 	_cancel_pending("sdkShutdown", "Nuxie is shutting down; retry durable usage with the same operation ID")
 	var response: Dictionary = await _request("shutdown", {})
 	# A lost reply can mean native teardown is still running or already done.
-	# Only an acknowledgement (including an expired native session) releases
-	# ownership; other failures must leave the session available for retry.
-	var detached := not response.has("error") or _error(response).code == "sessionExpired"
+	# Native explicitly acknowledges both completed and already-absent setup.
+	# An expired session alone says nothing about global SDK teardown.
+	var detached := not response.has("error")
 	if detached:
 		_session = ""
 		_configuration.clear()
