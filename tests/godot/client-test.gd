@@ -1,5 +1,6 @@
 extends SceneTree
 
+const ExportPlugin = preload("res://addons/nuxie/android/export_plugin.gd")
 const Client = preload("res://addons/nuxie/nuxie.gd")
 const Wire = preload("res://addons/nuxie/internal/wire.gd")
 const Waiter = preload("res://addons/nuxie/internal/waiter.gd")
@@ -75,6 +76,13 @@ func _initialize() -> void:
 	_run.call_deferred()
 
 func _run() -> void:
+	for pair in [
+		["/Users/Game Projects/a#b", "file:///Users/Game%20Projects/a%23b"],
+		["C:/Game Projects/a#b", "file:///C:/Game%20Projects/a%23b"],
+		["C:\\Game Projects\\maven", "file:///C:/Game%20Projects/maven"],
+		["//server/share/Game Projects/maven", "file://server/share/Game%20Projects/maven"],
+	]:
+		check(ExportPlugin._maven_repository_uri(pair[0]) == pair[1], "Portable Maven file URI: " + pair[0])
 	var client := Client.new()
 	root.add_child(client)
 	var unsupported := await client.configure(NuxieOptions.new())

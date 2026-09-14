@@ -22,7 +22,19 @@ func _get_android_dependencies(_platform: EditorExportPlatform, _debug: bool) ->
 	return PackedStringArray(["ai.nuxie:nuxie-android:0.2.0-" + str(_pins().get("android", {}).get("revision", "missing")), "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"])
 
 func _get_android_dependencies_maven_repos(_platform: EditorExportPlatform, _debug: bool) -> PackedStringArray:
-	return PackedStringArray(["file://" + ProjectSettings.globalize_path("res://addons/nuxie/android/maven")])
+	return PackedStringArray([_maven_repository_uri(ProjectSettings.globalize_path("res://addons/nuxie/android/maven"))])
+
+static func _maven_repository_uri(absolute_path: String) -> String:
+	var normalized := absolute_path.replace("\\", "/")
+	var components := normalized.split("/")
+	for index in components.size():
+		components[index] = components[index].uri_encode()
+	if normalized.length() >= 3 and normalized[1] == ":" and normalized[2] == "/":
+		components[0] = normalized.get_slice("/", 0)
+		return "file:///" + "/".join(components)
+	if normalized.begins_with("//"):
+		return "file:" + "/".join(components)
+	return "file://" + "/".join(components)
 
 func _get_export_options(_platform: EditorExportPlatform) -> Array[Dictionary]:
 	return [{"option": {"name": "nuxie/artifacts", "type": TYPE_BOOL}, "default_value": true}]

@@ -24,3 +24,4 @@ examples/sdk-lab/local-settings.json
 addons/nuxie/ios/*.xcframework/
 addons/nuxie/android/maven/
 addons/nuxie/artifact-checksums.json
+__pycache__/
