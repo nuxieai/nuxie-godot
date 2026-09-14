@@ -21,6 +21,7 @@ def run(args, cwd=root):
     print(result.stdout)
     if result.returncode or 'SCRIPT ERROR:' in result.stdout:
         raise SystemExit('Check failed: ' + ' '.join(args))
+run(['python3', '-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_*.py'])
 run([engine, '--headless', '--editor', '--path', str(root), '--import'])
 run([engine, '--headless', '--path', str(root), '--script', 'tests/godot/client-test.gd'])
 if (root / 'examples/sdk-lab/addons/nuxie/native-pins.json').is_file():
