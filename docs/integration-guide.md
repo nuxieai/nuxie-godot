@@ -39,3 +39,5 @@ python3 scripts/check.py
 ```
 
 This runs the pinned Godot client tests, Android unit tests/lint/builds, and real iOS simulator bridge tests. `GODOT_BIN` can select an installed copy of the pinned editor. The [Lab guide](../examples/sdk-lab/README.md) and [qualification record](testing-and-validation.md) describe player tests. Passing this command alone does not qualify store purchases or native presentation.
+
+Buildkite runs `bash scripts/ci.sh` on macOS. It installs the manifest's editor version after checking the official SHA-512 checksum, prepares the exact native revisions, packages the addon into the Lab, and runs the same checks above. The iOS test runner selects an available iPhone simulator. CI requires the same native toolchain as a source build.
