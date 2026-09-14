@@ -1,6 +1,6 @@
 # Qualification record
 
-Qualification date: 2026-09-13. This record separates executed checks from release qualifications that still require a signed device and store account.
+Live qualification: 2026-09-13. Review regression checks and native artifact rebuild: 2026-09-14. This record separates executed checks from release qualifications that still require a signed device and store account.
 
 | Layer | Configuration | Evidence |
 | --- | --- | --- |
@@ -9,6 +9,8 @@ Qualification date: 2026-09-13. This record separates executed checks from relea
 | iOS bridge | Pinned native dependency, iOS simulator | Three native tests pass; device/simulator debug/release frameworks build |
 | Android player | Godot 4.7.2 standard templates, emulator | 21 live API checks pass against a local development app |
 | iOS player | Godot 4.7.2 source-built ARM64 simulator engine | 21 checks pass on a clean install and on three consecutive warm launches with the authenticated cache retained |
+
+The recorded live iOS runs used startup-fix revision `36d1c99ae11b3ded93583166fd1cace899260093`. Subsequent Codex review fixes to retained-route ordering, offline fallback, and concurrent profile recovery are validated by the native SDK regression suite and rebuilt bridge artifacts; the live player runs have not been repeated for those later revisions.
 
 The live checks use the public addon and actual native clients: configure, identify, feature readiness, remote entity queries, consumption, retrying the same operation ID, receipt equality, exactly one debit, unchanged second entity, locale override/reset, anonymous identity rotation and reidentification. They do not mock backend grants or purchase outcomes. The Lab writes `user://validation.json` with every assertion.
 
