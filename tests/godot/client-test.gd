@@ -95,11 +95,14 @@ func _run() -> void:
 	var controller := Controller.new()
 	options.billing = NuxieBilling.external(controller)
 	var published_customers: Array[String] = []
+	var ready_feature_statuses: Array[int] = []
 	client.features_changed.connect(func(value: NuxieFeatureSnapshot) -> void:
 		if value.kind == NuxieFeatureState.Kind.READY:
-			published_customers.append(value.customer_id))
+			published_customers.append(value.customer_id)
+			ready_feature_statuses.append(client.get_status().kind))
 	check((await client.configure(options)).ok, "Configure")
 	check(client.get_feature_state("premium").access.allowed, "Initial access")
+	check(ready_feature_statuses == [NuxieStatus.Kind.READY], "Initial feature notification arrives after command readiness")
 	var exposed := client.get_feature_state("premium")
 	exposed.access.allowed = false
 	check(client.get_feature_state("premium").access.allowed, "Returned access cannot mutate cache")
@@ -167,7 +170,19 @@ func _run() -> void:
 		bridge.hold = "shutdown"
 		var failed_shutdown: Array = []
 		var retained_session: String = client._session
+		var invalidated: Array[int] = []
+		var shutting_down_access: Array[int] = []
+		var feature_listener := func(value: NuxieFeatureSnapshot) -> void: invalidated.append(value.kind)
+		var status_listener := func(value: NuxieStatus) -> void:
+			if value.kind == NuxieStatus.Kind.SHUTTING_DOWN:
+				shutting_down_access.append(client.get_feature_state("premium").kind)
+		client.features_changed.connect(feature_listener)
+		client.status_changed.connect(status_listener)
 		_capture.call(failed_shutdown, client.shutdown)
+		check(shutting_down_access == [NuxieFeatureState.Kind.UNKNOWN], "Shutdown status observers see revoked authority")
+		check(invalidated == [NuxieFeatureState.Kind.UNKNOWN] and client.get_feature_state("premium").kind == NuxieFeatureState.Kind.UNKNOWN, "Pending shutdown immediately publishes and exposes unknown access")
+		client.features_changed.disconnect(feature_listener)
+		client.status_changed.disconnect(status_listener)
 		await process_frame
 		for pending: RefCounted in client._pending.values():
 			pending.deadline = 0
@@ -182,6 +197,26 @@ func _run() -> void:
 		check(bridge.requests[-1].method == "shutdown" and bridge.requests[-1].arguments.session == retained_session, "Retry sends the retained native session")
 		check((await client.configure(options)).ok, "Configure after recovered shutdown")
 	await client.shutdown()
+	for timeout in [false, true]:
+		bridge.hold = "getIdentity"
+		var setup_results: Array = []
+		_capture.call(setup_results, client.configure.bind(options))
+		await process_frame
+		await process_frame
+		_capture.call(setup_results, client.configure.bind(options))
+		check(client.get_status().kind == NuxieStatus.Kind.CONFIGURING and setup_results.is_empty(), "Configure callers wait for initial identity hydration")
+		if timeout:
+			for pending: RefCounted in client._pending.values():
+				pending.deadline = 0
+		else:
+			bridge.messages.append(JSON.stringify({"requestId": bridge.requests[-1].requestId, "error": {"code": "identityUnavailable", "message": "Identity query failed"}}))
+		await process_frame
+		await process_frame
+		var expected_error := "operationTimeout" if timeout else "identityUnavailable"
+		check(setup_results.size() == 2 and not setup_results[0].ok and not setup_results[1].ok and setup_results[0].error.code == expected_error and setup_results[1].error.code == expected_error, "Hydration failure reaches every configure caller")
+		check(client.get_status().kind == NuxieStatus.Kind.FAILED and client.get_feature_state("premium").kind == NuxieFeatureState.Kind.UNKNOWN, "Hydration failure cannot report ready authority")
+		bridge.hold = ""
+		check((await client.shutdown()).ok, "Failed hydration keeps the native session available for shutdown")
 	var shutdown_results: Array = []
 	var shutdown_callback := func(status: NuxieStatus) -> void:
 		if status.kind == NuxieStatus.Kind.CONFIGURING:

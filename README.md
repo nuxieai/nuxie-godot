@@ -48,7 +48,9 @@ func _ready() -> void:
 
 Use public platform keys from the same Nuxie app. Server credentials never belong in your game. Production, warning logging, device locale and native billing are the defaults.
 
-Nuxie persists across scene changes. Configure once; equivalent concurrent calls share initialization. To change configuration, explicitly `await Nuxie.shutdown()` first. Configuration success means the SDK is configured—not that feature access is already known.
+Nuxie persists across scene changes. Configure once; equivalent concurrent calls share initialization, including the initial identity query. Configuration succeeds after both setup and identity hydration succeed. Feature readiness is reported separately through feature snapshots.
+
+To change configuration, explicitly `await Nuxie.shutdown()` first. Shutdown immediately invalidates feature snapshots. If teardown fails or times out, retry shutdown before configuring again.
 
 Async methods return typed results. Check `ok` before using a data result's `value`; failures carry `error.code` and `error.message`. A denied feature query can succeed as an operation while its returned access has `allowed == false`.
 
