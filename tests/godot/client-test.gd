@@ -35,6 +35,11 @@ class Bridge extends RefCounted:
 				var config: Dictionary = JSON.parse_string(args.configuration)
 				session = config.session
 				result = {"contract": 1, "session": session, "snapshot": null if bad_snapshot else snapshot()}
+			"shutdown":
+				if args.session != session:
+					messages.append(JSON.stringify({"requestId": request.requestId, "error": {"code": "sessionExpired", "message": "Session already detached"}}))
+					return
+				session = ""
 			"getIdentity":
 				result = {"distinctId": customer, "anonymousId": "anonymous", "isIdentified": customer != "anonymous"}
 			"identify", "reset":
@@ -150,6 +155,24 @@ func _run() -> void:
 	check(interrupted_results.size() == 1 and interrupted_results[0].error.code == "sdkShutdown", "Shutdown settles outstanding commands")
 	check(client.get_feature_state("premium").kind == NuxieFeatureState.Kind.UNKNOWN, "Shutdown invalidates access")
 	check((await client.configure(options)).ok, "Reconfigure")
+	for native_completed in [false, true]:
+		bridge.hold = "shutdown"
+		var failed_shutdown: Array = []
+		var retained_session: String = client._session
+		_capture.call(failed_shutdown, client.shutdown)
+		await process_frame
+		for pending: RefCounted in client._pending.values():
+			pending.deadline = 0
+		await process_frame
+		check(failed_shutdown.size() == 1 and failed_shutdown[0].error.code == "operationTimeout", "Shutdown timeout settles")
+		check(client.get_status().kind == NuxieStatus.Kind.FAILED and client._session == retained_session, "Failed shutdown retains retry ownership")
+		check(not (await client.configure(options)).ok, "Reconfiguration waits for confirmed detach")
+		bridge.hold = ""
+		if native_completed:
+			bridge.session = ""
+		check((await client.shutdown()).ok, "Retry detaches or confirms an already expired session")
+		check(bridge.requests[-1].method == "shutdown" and bridge.requests[-1].arguments.session == retained_session, "Retry sends the retained native session")
+		check((await client.configure(options)).ok, "Configure after recovered shutdown")
 	await client.shutdown()
 	var shutdown_results: Array = []
 	var shutdown_callback := func(status: NuxieStatus) -> void:

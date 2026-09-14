@@ -120,15 +120,21 @@ func shutdown() -> NuxieResult:
 	_identity_busy = false
 	_cancel_pending("sdkShutdown", "Nuxie is shutting down; retry durable usage with the same operation ID")
 	var response: Dictionary = await _request("shutdown", {})
-	_session = ""
-	_configuration.clear()
+	# A lost reply can mean native teardown is still running or already done.
+	# Only an acknowledgement (including an expired native session) releases
+	# ownership; other failures must leave the session available for retry.
+	var detached := not response.has("error") or _error(response).code == "sessionExpired"
+	if detached:
+		_session = ""
+		_configuration.clear()
+		_controller = null
+		response = {"result": null}
 	_checkout.clear()
-	_controller = null
 	_customer = ""
 	_snapshot.clear()
 	_buffered.clear()
 	features_changed.emit(get_feature_snapshot())
-	_set_status(NuxieStatus.Kind.UNCONFIGURED, _error(response))
+	_set_status(NuxieStatus.Kind.UNCONFIGURED if detached else NuxieStatus.Kind.FAILED, _error(response))
 	shutdown_waiter.finish(response)
 	return _ack(response)
 
