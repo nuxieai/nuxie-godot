@@ -27,10 +27,12 @@ for variant in release debug; do
   if [[ "$variant" == debug ]]; then configuration=Debug; cpp_flags+=(-DDEBUG_ENABLED); fi
   framework_args=()
   for platform in ios simulator; do
+    architectures=(arm64)
     sdk=iphoneos
     destination='generic/platform=iOS'
     deployment=-miphoneos-version-min=15.0
     if [[ "$platform" == simulator ]]; then
+      architectures+=(x86_64)
       sdk=iphonesimulator
       destination='generic/platform=iOS Simulator'
       deployment=-mios-simulator-version-min=15.0
@@ -38,22 +40,31 @@ for variant in release debug; do
     archive="$OUTPUT_DIR/$variant-$platform.xcarchive"
     xcodebuild archive -quiet -scheme NuxieGodotBridge -configuration "$configuration" \
       -destination "$destination" -archivePath "$archive" -derivedDataPath "$DERIVED_DATA" \
-      ARCHS=arm64 SKIP_INSTALL=NO BUILD_LIBRARY_FOR_DISTRIBUTION=YES
+      "ARCHS=${architectures[*]}" ONLY_ACTIVE_ARCH=NO SKIP_INSTALL=NO BUILD_LIBRARY_FOR_DISTRIBUTION=YES
     framework="$archive/Products/usr/local/lib/NuxieGodotBridge.framework"
     if [[ ! -d "$framework" ]]; then framework="$archive/Products/Library/Frameworks/NuxieGodotBridge.framework"; fi
     test -d "$framework"
+    xcrun lipo "$framework/NuxieGodotBridge" -verify_arch "${architectures[@]}"
     framework_args+=(-framework "$framework")
     resource="$DERIVED_DATA/Build/Intermediates.noindex/ArchiveIntermediates/NuxieGodotBridge/IntermediateBuildFilesPath/UninstalledProducts/$sdk/Nuxie_Nuxie.bundle"
     test -d "$resource"
     ditto "$resource" "$framework/Nuxie_Nuxie.bundle"
     mkdir -p "$OUTPUT_DIR/plugin-build/$variant-$platform"
-    object="$OUTPUT_DIR/plugin-build/$variant-$platform/plugin.o"
-    xcrun --sdk "$sdk" clang++ -c Sources/NuxieGodotPlugin/nuxie_godot_plugin.cpp -o "$object" \
-      -arch arm64 -isysroot "$(xcrun --sdk "$sdk" --show-sdk-path)" "$deployment" \
-      -std=gnu++17 -O2 -fno-exceptions -fblocks -fvisibility=hidden -DNDEBUG \
-      -DPTRCALL_ENABLED -DNEED_LONG_INT -DTHREADS_ENABLED -DIOS_ENABLED -DAPPLE_EMBEDDED_ENABLED \
-      -DUNIX_ENABLED -DCOREAUDIO_ENABLED "${cpp_flags[@]}" -I"$GODOT_SOURCE_DIR" -I"$GODOT_SOURCE_DIR/platform/ios"
-    xcrun libtool -static -o "$OUTPUT_DIR/plugin-build/$variant-$platform/plugin.a" "$object"
+    libraries=()
+    for architecture in "${architectures[@]}"; do
+      object="$OUTPUT_DIR/plugin-build/$variant-$platform/plugin-$architecture.o"
+      library="$OUTPUT_DIR/plugin-build/$variant-$platform/plugin-$architecture.a"
+      xcrun --sdk "$sdk" clang++ -c Sources/NuxieGodotPlugin/nuxie_godot_plugin.cpp -o "$object" \
+        -arch "$architecture" -isysroot "$(xcrun --sdk "$sdk" --show-sdk-path)" "$deployment" \
+        -std=gnu++17 -O2 -fno-exceptions -fblocks -fvisibility=hidden -DNDEBUG \
+        -DPTRCALL_ENABLED -DNEED_LONG_INT -DTHREADS_ENABLED -DIOS_ENABLED -DAPPLE_EMBEDDED_ENABLED \
+        -DUNIX_ENABLED -DCOREAUDIO_ENABLED "${cpp_flags[@]}" -I"$GODOT_SOURCE_DIR" -I"$GODOT_SOURCE_DIR/platform/ios"
+      xcrun libtool -static -o "$library" "$object"
+      libraries+=("$library")
+    done
+    combined="$OUTPUT_DIR/plugin-build/$variant-$platform/plugin.a"
+    xcrun lipo -create "${libraries[@]}" -output "$combined"
+    xcrun lipo "$combined" -verify_arch "${architectures[@]}"
   done
   # Delete only the two generated artifacts being replaced; retain the incremental build cache.
   rm -rf "$OUTPUT_DIR/NuxieGodotBridge.$variant.xcframework" "$OUTPUT_DIR/nuxie_godot_plugin.$variant.xcframework"

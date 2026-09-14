@@ -19,7 +19,7 @@ python3 scripts/pack.py
 
 The first command creates ignored `.native` inputs and builds Android and iOS artifacts. The second creates `dist/nuxie-godot-0.4.0.zip` and copies exactly that staged addon into `examples/sdk-lab/addons`. Prepared binaries are generated artifacts, not hidden uncommitted SDK source. Preserve `.native` for incremental builds. Never pack the repository root as the addon.
 
-The iOS build generates engine headers and compiles separate debug/release singleton adapters with matching DEBUG_ENABLED and threading flags. It packages Nuxie's Swift resource bundle inside each framework. The ZIP includes an artifact checksum manifest. Godot's export preflight checks version and configuration; use the complete native qualification before releasing.
+The iOS build generates engine headers and compiles separate debug/release singleton adapters with matching DEBUG_ENABLED and threading flags. Both the Swift bridge and singleton adapter include ARM64 device slices and universal ARM64/x86_64 simulator slices, verified during the build. It packages Nuxie's Swift resource bundle inside each framework. The ZIP includes an artifact checksum manifest. Godot's export preflight checks version and configuration; use the complete native qualification before releasing.
 
 ## Local backend
 

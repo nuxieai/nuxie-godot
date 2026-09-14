@@ -10,7 +10,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 
 FAKE_TOOL = r'''#!/usr/bin/env python3
-import os, sys
+import json, os, sys
 from pathlib import Path
 import shutil
 name = Path(sys.argv[0]).name
@@ -23,13 +23,25 @@ elif name == 'ditto':
 elif name == 'xcrun':
     if '--show-sdk-path' in args:
         print(os.environ['FAKE_SDK'])
+    elif '-verify_arch' in args:
+        actual = json.loads(Path(args[1]).read_text())
+        assert set(args[args.index('-verify_arch') + 1:]) <= set(actual), actual
     else:
-        Path(value('-o')).write_bytes(b'fixture object')
+        output = value('-o' if '-o' in args else '-output')
+        if 'clang++' in args:
+            architectures = [value('-arch')]
+        else:
+            architectures = sorted({arch for arg in args if arg.endswith(('.o', '.a')) and arg != output
+                                    for arch in json.loads(Path(arg).read_text())})
+        Path(output).write_text(json.dumps(architectures))
 elif args[0] == 'archive':
     archive = Path(value('-archivePath'))
     simulator = archive.name.endswith('-simulator.xcarchive')
     layout = os.environ['SIMULATOR_LAYOUT' if simulator else 'DEVICE_LAYOUT']
-    (archive / 'Products' / layout / 'NuxieGodotBridge.framework').mkdir(parents=True)
+    framework = archive / 'Products' / layout / 'NuxieGodotBridge.framework'
+    framework.mkdir(parents=True)
+    architectures = next(arg.removeprefix('ARCHS=') for arg in args if arg.startswith('ARCHS=')).split()
+    (framework / 'NuxieGodotBridge').write_text(json.dumps(architectures))
     sdk = 'iphonesimulator' if simulator else 'iphoneos'
     bundle = Path(value('-derivedDataPath')) / 'Build/Intermediates.noindex/ArchiveIntermediates/NuxieGodotBridge/IntermediateBuildFilesPath/UninstalledProducts' / sdk / 'Nuxie_Nuxie.bundle'
     bundle.mkdir(parents=True, exist_ok=True)
@@ -41,14 +53,18 @@ else:
             framework = Path(args[i + 1])
             assert framework.is_dir(), framework
             assert (framework / 'Nuxie_Nuxie.bundle/fixture.txt').read_text() == 'resources'
+            expected = {'arm64', 'x86_64'} if '-simulator' in str(framework) else {'arm64'}
+            assert set(json.loads((framework / 'NuxieGodotBridge').read_text())) == expected
         elif arg == '-library':
-            assert Path(args[i + 1]).is_file()
+            library = Path(args[i + 1])
+            expected = {'arm64', 'x86_64'} if '-simulator' in str(library) else {'arm64'}
+            assert set(json.loads(library.read_text())) == expected
     Path(value('-output')).mkdir()
 '''
 
 
 class XCFrameworkBuildTests(unittest.TestCase):
-    def test_resolved_paths_work_for_both_archive_layouts(self):
+    def test_archive_layouts_preserve_resources_and_required_architectures(self):
         for device, simulator in [
             ('usr/local/lib', 'Library/Frameworks'),
             ('Library/Frameworks', 'usr/local/lib'),
