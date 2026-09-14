@@ -4,7 +4,7 @@ Qualification date: 2026-09-13. This record separates executed checks from relea
 
 | Layer | Configuration | Evidence |
 | --- | --- | --- |
-| GDScript client | Godot 4.7.2, headless | 45 checks: lifecycle, stale snapshots, detached values, JSON validation, checkout correlation, timeout, paused dispatch and shutdown |
+| GDScript client | Godot 4.7.2, headless | 49 checks: lifecycle, stale snapshots, detached values, JSON validation, checkout correlation, timeout, paused dispatch and shutdown |
 | Android bridge | Pinned native dependency, debug/release AARs | Unit tests, Android lint and both builds pass |
 | iOS bridge | Pinned native dependency, iOS simulator | Three native tests pass; device/simulator debug/release frameworks build |
 | Android player | Godot 4.7.2 standard templates, emulator | 21 live API checks pass against a local development app |
