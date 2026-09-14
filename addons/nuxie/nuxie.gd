@@ -85,6 +85,8 @@ func configure(options: NuxieOptions) -> NuxieResult:
 	_session = Crypto.new().generate_random_bytes(16).hex_encode()
 	config.session = _session
 	var configuring_session := _session
+	var configuring_epoch := _identity_epoch
+	var hydrated_identity: NuxieIdentity
 	_setup_waiter = Waiter.new()
 	var setup := _setup_waiter
 	_set_status(NuxieStatus.Kind.CONFIGURING)
@@ -99,13 +101,26 @@ func configure(options: NuxieOptions) -> NuxieResult:
 			response = _error_wire("incompatibleBridge", "Native configuration response does not match the addon")
 		else:
 			_admit(data.snapshot)
-	if _status == NuxieStatus.Kind.CONFIGURING:
+	if not response.has("error") and _status == NuxieStatus.Kind.CONFIGURING and _session == configuring_session:
+		var identity := await _read_identity(true)
+		if not identity.ok:
+			response = {"error": identity.error.details.duplicate(true)}
+			response.error.merge({"code": identity.error.code, "message": identity.error.message}, true)
+		else:
+			hydrated_identity = identity.value
+	if _status == NuxieStatus.Kind.CONFIGURING and _session == configuring_session:
+		if response.has("error"):
+			_customer = ""
+			_snapshot.clear()
+			_buffered.clear()
 		_set_status(NuxieStatus.Kind.FAILED if response.has("error") else NuxieStatus.Kind.READY, _error(response))
+	if not response.has("error") and hydrated_identity != null and _session == configuring_session and _status == NuxieStatus.Kind.READY and _identity_epoch == configuring_epoch:
+		identity_changed.emit(hydrated_identity)
+		if _session == configuring_session and _status == NuxieStatus.Kind.READY and _identity_epoch == configuring_epoch:
+			features_changed.emit(get_feature_snapshot())
 	if not response.has("error") and (_session != configuring_session or _status != NuxieStatus.Kind.READY):
 		response = _error_wire("sdkShutdown", "Configuration interrupted by lifecycle callback")
 	setup.finish(response)
-	if not response.has("error"):
-		await get_identity()
 	return _ack(response)
 
 func shutdown() -> NuxieResult:
@@ -115,9 +130,14 @@ func shutdown() -> NuxieResult:
 		return _ack(await _shutdown_waiter.wait())
 	_shutdown_waiter = Waiter.new()
 	var shutdown_waiter := _shutdown_waiter
-	_set_status(NuxieStatus.Kind.SHUTTING_DOWN)
 	_identity_epoch += 1
 	_identity_busy = false
+	_checkout.clear()
+	_customer = ""
+	_snapshot.clear()
+	_buffered.clear()
+	_set_status(NuxieStatus.Kind.SHUTTING_DOWN)
+	features_changed.emit(get_feature_snapshot())
 	_cancel_pending("sdkShutdown", "Nuxie is shutting down; retry durable usage with the same operation ID")
 	var response: Dictionary = await _request("shutdown", {})
 	# A lost reply can mean native teardown is still running or already done.
@@ -129,11 +149,6 @@ func shutdown() -> NuxieResult:
 		_configuration.clear()
 		_controller = null
 		response = {"result": null}
-	_checkout.clear()
-	_customer = ""
-	_snapshot.clear()
-	_buffered.clear()
-	features_changed.emit(get_feature_snapshot())
 	_set_status(NuxieStatus.Kind.UNCONFIGURED if detached else NuxieStatus.Kind.FAILED, _error(response))
 	shutdown_waiter.finish(response)
 	return _ack(response)
@@ -190,8 +205,15 @@ func _change_identity(method: String, arguments: Dictionary) -> NuxieResult:
 	return _ack(response)
 
 func get_identity() -> NuxieIdentityResult:
+	return await _read_identity()
+
+func _read_identity(during_setup: bool = false) -> NuxieIdentityResult:
 	var epoch := _identity_epoch
-	var response: Dictionary = await _command("getIdentity", {})
+	var response: Dictionary
+	if during_setup:
+		response = await _request("getIdentity", {})
+	else:
+		response = await _command("getIdentity", {})
 	if epoch != _identity_epoch:
 		return NuxieIdentityResult.new(null, NuxieError.new("identityChanged", "Identity changed during this query"))
 	var failure := _error(response)
@@ -201,14 +223,15 @@ func get_identity() -> NuxieIdentityResult:
 	if failure != null:
 		return NuxieIdentityResult.new(null, failure)
 	_customer = data.distinctId
-	identity_changed.emit(NuxieIdentity.new(data))
+	if not during_setup:
+		identity_changed.emit(NuxieIdentity.new(data))
 	if epoch != _identity_epoch:
 		return NuxieIdentityResult.new(null, NuxieError.new("identityChanged", "Identity changed during notification"))
 	if not _buffered.is_empty():
 		var buffered := _buffered.duplicate(true)
 		_buffered.clear()
 		_admit(buffered)
-	else:
+	elif not during_setup:
 		features_changed.emit(get_feature_snapshot())
 	if epoch != _identity_epoch:
 		return NuxieIdentityResult.new(null, NuxieError.new("identityChanged", "Identity changed during feature notification"))
@@ -328,7 +351,8 @@ func _admit(data: Dictionary) -> void:
 	if not _snapshot.is_empty() and not _newer(data, _snapshot):
 		return
 	_snapshot = data.duplicate(true)
-	features_changed.emit(get_feature_snapshot())
+	if _status != NuxieStatus.Kind.CONFIGURING:
+		features_changed.emit(get_feature_snapshot())
 
 func _newer(a: Dictionary, b: Dictionary) -> bool:
 	var generation := Wire.compare(a.identityGeneration, b.identityGeneration)
