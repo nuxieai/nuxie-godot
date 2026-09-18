@@ -1,8 +1,16 @@
 # Qualification record
 
+## Current native pins
+
+iOS `95d76d41eb4cc945cb57e5c1bcd8333ed15d55cc` and Android `4d65783e2eec5b585673041146dff887258d3c93` include
+published Apple runtime 0.10.8 and Android runtime 0.4.8, rendered-video visibility,
+and interruption recovery fixes. Native preparation, wrapper builds, playback,
+and final readiness for these revisions remain pending. Results below identify
+the earlier revisions they qualified.
+
 ## Native video format fix — September 18, 2026
 
-Current pins are iOS `858321e2` and Android `1514b1c`. Native preparation
+The preceding qualification used iOS `858321e2` and Android `1514b1c`. Native preparation
 completed against the iOS content-addressed-video fix. The rebuilt addon passed
 independent verification of all 142 file hashes and exact native pins. Fresh
 bridge checks and final readiness remain outstanding at these pins. The Lab now has playback-only `autoConnect` startup;
