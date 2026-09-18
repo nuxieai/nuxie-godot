@@ -44,7 +44,9 @@ for variant in release debug; do
     framework="$archive/Products/usr/local/lib/NuxieGodotBridge.framework"
     if [[ ! -d "$framework" ]]; then framework="$archive/Products/Library/Frameworks/NuxieGodotBridge.framework"; fi
     test -d "$framework"
-    xcrun lipo "$framework/NuxieGodotBridge" -verify_arch "${architectures[@]}"
+    for architecture in "${architectures[@]}"; do
+      xcrun lipo "$framework/NuxieGodotBridge" -verify_arch "$architecture"
+    done
     framework_args+=(-framework "$framework")
     resource="$DERIVED_DATA/Build/Intermediates.noindex/ArchiveIntermediates/NuxieGodotBridge/IntermediateBuildFilesPath/UninstalledProducts/$sdk/Nuxie_Nuxie.bundle"
     test -d "$resource"
@@ -64,7 +66,9 @@ for variant in release debug; do
     done
     combined="$OUTPUT_DIR/plugin-build/$variant-$platform/plugin.a"
     xcrun lipo -create "${libraries[@]}" -output "$combined"
-    xcrun lipo "$combined" -verify_arch "${architectures[@]}"
+    for architecture in "${architectures[@]}"; do
+      xcrun lipo "$combined" -verify_arch "$architecture"
+    done
   done
   # Delete only the two generated artifacts being replaced; retain the incremental build cache.
   rm -rf "$OUTPUT_DIR/NuxieGodotBridge.$variant.xcframework" "$OUTPUT_DIR/nuxie_godot_plugin.$variant.xcframework"

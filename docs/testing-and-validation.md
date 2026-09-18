@@ -1,5 +1,35 @@
 # Qualification record
 
+## Video delivery candidate — September 18, 2026
+
+This candidate pins pushed native development revisions iOS
+`38428e8bb1c65605d6c982ff22b2a18d63229950` and Android
+`e76714a76e14b8f293e782934c107a789d0a67f0`, pending final native qualification
+and review under [UNIV-3262](https://universe.basis.dev/issue/UNIV-3262).
+
+With Godot 4.7.2 (`ed1daf0bf`), `scripts/check.py` passed three Python checks,
+69 GDScript checks, three Android bridge tests, Android lint and debug/release
+builds, and six iOS bridge tests on the simulator. `scripts/prepare-native.py`
+built the pinned Android Maven artifact and all four iOS XCFrameworks: debug
+and release Swift bridges and engine plugins, each with device ARM64 and
+simulator ARM64/x86_64 slices. Xcode 27 checks each required architecture
+individually because its multi-architecture `lipo -verify_arch` invocation fails.
+The Android preparation script uses the release variant owned by the native SDK
+instead of registering it again.
+
+`scripts/pack.py` produced the addon ZIP and staged that same addon into the Lab.
+Independent ZIP inspection verified all 142 file digests, exact native pins,
+and the four XCFramework architecture inventories. The staged Lab imported in
+Godot 4.7.2 headless mode without script errors.
+
+This establishes bridge regression, artifact build, and package integrity.
+Signed-video playback, acquisition, captions, and lifecycle behavior through
+the Godot player still require device qualification. The earlier live evidence
+below does not qualify this video candidate. Final readiness/review and the
+parent pointer update remain pending.
+
+## Earlier qualification
+
 Live qualification: 2026-09-13. Review regression checks and native artifact rebuild: 2026-09-14. This record separates executed checks from release qualifications that still require a signed device and store account.
 
 | Layer | Configuration | Evidence |
