@@ -6,7 +6,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/nuxieai/nuxie-ios.git",
       "state" : {
-        "revision" : "38428e8bb1c65605d6c982ff22b2a18d63229950"
+        "revision" : "072e38b24df67f7e6326815ed5e126c93c8e67d7"
       }
     }
   ],

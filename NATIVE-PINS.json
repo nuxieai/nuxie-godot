@@ -4,10 +4,10 @@
   "godot": "4.7.2",
   "ios": {
     "repository": "https://github.com/nuxieai/nuxie-ios.git",
-    "revision": "38428e8bb1c65605d6c982ff22b2a18d63229950"
+    "revision": "072e38b24df67f7e6326815ed5e126c93c8e67d7"
   },
   "android": {
     "repository": "https://github.com/nuxieai/nuxie-android.git",
-    "revision": "e76714a76e14b8f293e782934c107a789d0a67f0"
+    "revision": "1514b1cce3d64502b483c41fa551e7290caf10b0"
   }
 }

@@ -1,6 +1,20 @@
 # Qualification record
 
-## Video delivery candidate — September 18, 2026
+## Native pin refresh — September 18, 2026
+
+Current development pins are iOS `072e38b24df67f7e6326815ed5e126c93c8e67d7`
+and Android `1514b1cce3d64502b483c41fa551e7290caf10b0`, including shared
+decoder admission and hidden-screen suspension. `scripts/prepare-native.py`
+rebuilt the native artifacts. `scripts/check.py` passed three Python checks,
+69 GDScript checks, Android bridge tests/lint/debug and release builds, and
+six Swift simulator tests. Shared Gradle cache metadata was unavailable, so
+these checks used an isolated task cache with JDK 17/21 configured.
+
+`scripts/pack.py` rebuilt the customer addon. Independent ZIP inspection
+verified all 142 file hashes and exact native pins. Actual signed-video playback
+in the Godot mobile Lab and final readiness/review remain outstanding.
+
+## Earlier video delivery candidate — September 18, 2026
 
 This candidate pins pushed native development revisions iOS
 `38428e8bb1c65605d6c982ff22b2a18d63229950` and Android
