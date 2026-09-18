@@ -5,8 +5,7 @@
 Current pins are iOS `858321e2` and Android `1514b1c`. Native preparation
 completed against the iOS content-addressed-video fix. The rebuilt addon passed
 independent verification of all 142 file hashes and exact native pins. Fresh
-bridge checks, iOS signed-video mobile playback, and final readiness remain
-outstanding at these pins. The Lab now has playback-only `autoConnect` startup;
+bridge checks and final readiness remain outstanding at these pins. The Lab now has playback-only `autoConnect` startup;
 its import and 69 GDScript client checks passed. Android export uses ordinary
 window mode so the platform's first-use immersive help cannot obscure the
 qualification scene. The configured Android export passed. The actual Android player then displayed
@@ -16,7 +15,12 @@ and MP4 bytes matched their signed identities. The first capture was obscured
 by fullscreen help; the ordinary-window build passed visible playback.
 The standard iOS
 simulator template again failed ARM64 linkage because its archive contains
-x86_64 objects only; the documented pinned-engine source build is in progress.
+x86_64 objects only. The documented unmodified pinned-engine ARM64 source build
+completed, and the resulting simulator Lab built and visibly played both phases
+across 12 screenshot samples. Its cached scene and MP4 hashes matched the signed
+inventory. This is source-built simulator-engine evidence, not qualification of
+the downloaded simulator archive. Audio, captions, resource/failure cases, and
+final readiness remain separate requirements.
 
 ## Earlier native pin refresh — September 18, 2026
 
