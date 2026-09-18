@@ -31,6 +31,8 @@ func _ready() -> void:
 	_features_changed(Nuxie.get_feature_snapshot())
 	if _settings.get("autorun", false):
 		_run_checks.call_deferred()
+	elif _settings.get("autoConnect", false):
+		_configure_sdk.call_deferred()
 
 func _exit_tree() -> void:
 	Nuxie.features_changed.disconnect(_features_changed)
@@ -118,7 +120,7 @@ func _capture_settings() -> void:
 		_settings[field] = _inputs[field].text.strip_edges()
 	_write_json("user://settings.json", _settings)
 
-func _connect_sdk() -> bool:
+func _configure_sdk() -> bool:
 	_capture_settings()
 	var options := NuxieOptions.new()
 	options.ios_api_key = _settings.get("iosApiKey", "")
@@ -129,6 +131,11 @@ func _connect_sdk() -> bool:
 		return false
 	var identified := await Nuxie.identify(_settings.get("customerId", ""))
 	if not _result("Identify", identified):
+		return false
+	return true
+
+func _connect_sdk() -> bool:
+	if not await _configure_sdk():
 		return false
 	var deadline := Time.get_ticks_msec() + 20000
 	while Nuxie.get_feature_snapshot().kind != NuxieFeatureState.Kind.READY and Time.get_ticks_msec() < deadline:
