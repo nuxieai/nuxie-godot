@@ -7,9 +7,12 @@ published Apple runtime 0.10.8 and Android runtime 0.4.8, rendered-video visibil
 and interruption recovery fixes. Three Python checks and all 69 GDScript client
 checks passed at these pins. `python3 scripts/check-ios.py` resolved the exact
 iOS revision and passed all six Swift bridge tests on the iPhone 18 Pro
-simulator running iOS 27. Native artifact preparation, player builds/playback
-and final readiness remain pending. Results below identify the earlier
-revisions they qualified.
+simulator running iOS 27. Android bridge unit tests, lint and debug/release
+builds passed with the exact Android pin. Its native Maven coordinate reused
+the independently hash-verified artifact built by Unity preparation at the same
+revision; the matching native source checkout supplies dependency licenses.
+iOS artifact preparation, player builds/playback and final readiness remain
+pending. Results below identify the earlier revisions they qualified.
 
 ## Native video format fix — September 18, 2026
 
