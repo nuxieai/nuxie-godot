@@ -1,8 +1,16 @@
 # Qualification record
 
-## Native pin refresh — September 18, 2026
+## Native video format fix — September 18, 2026
 
-Current development pins are iOS `072e38b24df67f7e6326815ed5e126c93c8e67d7`
+Current pins are iOS `858321e2` and Android `1514b1c`. Native preparation
+completed against the iOS content-addressed-video fix. The rebuilt addon passed
+independent verification of all 142 file hashes and exact native pins. Fresh
+bridge checks, actual signed-video mobile playback, and final readiness remain
+outstanding at these pins.
+
+## Earlier native pin refresh — September 18, 2026
+
+The earlier development pins were iOS `072e38b24df67f7e6326815ed5e126c93c8e67d7`
 and Android `1514b1cce3d64502b483c41fa551e7290caf10b0`, including shared
 decoder admission and hidden-screen suspension. `scripts/prepare-native.py`
 rebuilt the native artifacts. `scripts/check.py` passed three Python checks,
