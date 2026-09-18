@@ -11,8 +11,10 @@ simulator running iOS 27. Android bridge unit tests, lint and debug/release
 builds passed with the exact Android pin. Its native Maven coordinate reused
 the independently hash-verified artifact built by Unity preparation at the same
 revision; the matching native source checkout supplies dependency licenses.
-iOS artifact preparation, player builds/playback and final readiness remain
-pending. Results below identify the earlier revisions they qualified.
+The canonical iOS build script produced all four release/debug Swift bridge
+and engine-plugin XCFrameworks with device ARM64 and simulator ARM64/x86_64
+slices against the resolved iOS pin. Player builds/playback and final readiness
+remain pending. Results below identify the earlier revisions they qualified.
 
 ## Native video format fix — September 18, 2026
 
