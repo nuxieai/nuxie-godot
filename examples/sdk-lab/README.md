@@ -19,3 +19,16 @@ Play a turn persists a pending action before consuming energy and reuses that ID
 Trigger a published Experience and tap a real App Action. The Lab records its name and payload and tracks native screen dismissal to restore the prior SceneTree pause state. Change scene demonstrates autoload persistence and signal cleanup. The Editor displays the UI, but native commands fail explicitly; it is not a backend simulator.
 
 Inspect the [qualification record](../../docs/testing-and-validation.md) before interpreting a successful build as runtime evidence. Store sandbox and physical-device purchase checks are separate from the API checks.
+
+### Development audio coordination probe
+
+Set `audioQualification: true` with `autoConnect: true` in the ignored local
+settings to run the real engine's 440 Hz tone while a signed video Experience
+opens. This flag is honored only in debug builds. The probe checks nonzero mixer
+output and an advancing tone clock before presentation, the Lab's existing
+SceneTree pause policy during presentation, then dismisses through the SDK and
+checks restored tone progression and output. Inspect `NUXIE_GAME_AUDIO` logs and
+confirm the visible video was moving; run with both audible and muted signed
+fixtures. The Lab deliberately pauses game audio for every presented screen.
+This measures engine output and ownership restoration, not external speaker
+latency or other apps' audio. Remove the local flag for ordinary use.

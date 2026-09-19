@@ -2,6 +2,25 @@
 
 ## Current native pins
 
+iOS `1e6970f306a9dac2ed567a239bf0e64a83e2d7cc` and Android
+`20f9d42f7d5fe1cba6e2426d63c24499eb966ce7` include shared immutable-video
+bindings, cancellation of obsolete acquisition, and live caption preference
+refresh. Native preparation rebuilt the four iOS XCFrameworks and both Android
+bridge variants. The addon independently verified its exact pins and all 142
+artifact hashes. Final committed-tree readiness is recorded in the PR.
+
+On the API 36 emulator, the actual Godot Lab passed the opt-in game audio probe
+with both audible and muted signed video. Screenshots contained red and blue
+frames. The engine's 440 Hz tone produced approximately −20 dB mixer output
+before presentation, its playback position stayed fixed under the Lab's
+SceneTree pause policy, and SDK dismissal restored both clock progression and
+mixer output. The muted run used an eight-second presentation after an earlier
+four-second capture sampled only red and was excluded. Both runs cleared the
+synthetic Lab's data first. This proves the app's explicit game-audio ownership
+policy; it does not measure acoustic speaker output or other applications.
+
+## Earlier cache-preservation pin qualification
+
 iOS `48fa51d6591f61d437620abfa06eb7fcb1a64564` preserves a verified cached object when a conflicting
 signed byte-count claim is rejected. Android remains
 `4d65783e2eec5b585673041146dff887258d3c93`. All four native iOS XCFrameworks were rebuilt against this cache-only fix;
