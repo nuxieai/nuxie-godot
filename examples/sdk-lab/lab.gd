@@ -29,6 +29,9 @@ func _ready() -> void:
 	Nuxie.app_action_received.connect(_app_action_received)
 	Nuxie.error_received.connect(_error_received)
 	_features_changed(Nuxie.get_feature_snapshot())
+	if OS.is_debug_build() and _settings.get("audioQualification", false):
+		add_child(load("res://audio-qualification.gd").new())
+		await get_tree().create_timer(1.0).timeout
 	if _settings.get("autorun", false):
 		_run_checks.call_deferred()
 	elif _settings.get("autoConnect", false):
