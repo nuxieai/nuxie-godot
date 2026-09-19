@@ -2,6 +2,15 @@
 
 ## Current native pins
 
+iOS `48fa51d6591f61d437620abfa06eb7fcb1a64564` preserves a verified cached object when a conflicting
+signed byte-count claim is rejected. Android remains
+`4d65783e2eec5b585673041146dff887258d3c93`. All four native iOS XCFrameworks were rebuilt against this cache-only fix;
+the customer addon passed independent verification of its exact pins and all
+142 artifact hashes. Final readiness is recorded in the pull request. Player
+measurements below name the preceding iOS pin and the same Android revision.
+
+## Final video playback candidate checks
+
 iOS `95d76d41eb4cc945cb57e5c1bcd8333ed15d55cc` and Android `4d65783e2eec5b585673041146dff887258d3c93` include
 published Apple runtime 0.10.8 and Android runtime 0.4.8, rendered-video visibility,
 and interruption recovery fixes. Three Python checks and all 69 GDScript client
@@ -13,8 +22,23 @@ the independently hash-verified artifact built by Unity preparation at the same
 revision; the matching native source checkout supplies dependency licenses.
 The canonical iOS build script produced all four release/debug Swift bridge
 and engine-plugin XCFrameworks with device ARM64 and simulator ARM64/x86_64
-slices against the resolved iOS pin. Player builds/playback and final readiness
-remain pending. Results below identify the earlier revisions they qualified.
+slices against the resolved iOS pin. The addon passed independent verification of all 142 file hashes and exact
+native pins. Player results on both platforms follow.
+
+The actual ARM64 iOS simulator player passed a clean cold launch, background /
+foreground return, and process restart while the delivery origin timed out.
+Each 12-screenshot sequence observed at least three red/blue transitions after
+startup, excluding a static launch snapshot as a playback oracle. Independently
+hashed cached scene `242a0ebc242f2617d923a9e1e04a7cf01b9d5d6a8e62cc934f1f26df6efef4db`
+and MP4 `f0a65563c100506c0f98c138e8be1ae333c9879bb77237fbada60bddcfa78669`
+matched the signed inventory. This establishes the tested iOS playback and bounded
+origin-outage cases, not audio measurement, caption accessibility, or every
+resource/failure scenario. Canonical readiness passed at this candidate, including
+all bridge and source checks. The actual Android player passed clean cold playback and Home/Recents return,
+with at least three video color changes in each accepted capture. Its cached
+scene and MP4 hashes matched the signed inventory, and the APK passed 16 KiB ZIP
+alignment. Intermittent host ADB daemon restarts produced rejected empty
+screenshots; they are retained as harness errors rather than playback evidence.
 
 ## Native video format fix — September 18, 2026
 
@@ -125,6 +149,10 @@ python3 scripts/prepare-native.py
 python3 scripts/pack.py
 python3 scripts/check.py
 ```
+
+Set `TEST_DESTINATION` to an Xcode destination such as
+`platform=iOS Simulator,id=<UDID>` to select a simulator for bridge tests. If
+unset, the check uses the first available iPhone simulator.
 
 The prepared archive is copied into the Lab by `pack.py`, so mobile validation exercises the same addon layout a customer installs. Follow the [Lab guide](../examples/sdk-lab/README.md) for platform exports and local HTTP debugging.
 
