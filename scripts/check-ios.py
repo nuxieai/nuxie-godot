@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import json
+import os
 import subprocess
 
 root = Path(__file__).resolve().parent.parent
@@ -15,6 +16,9 @@ config = {'name': 'GodotBridgeTests', 'options': {'deploymentTarget': {'iOS': '1
  'schemes': {'BridgeTests': {'build': {'targets': {'NuxieGodotBridge': 'all', 'BridgeTests': ['test']}}, 'test': {'targets': ['BridgeTests']}}}}
 (project / 'project.json').write_text(json.dumps(config, indent=2))
 subprocess.run(['xcodegen', 'generate', '--spec', 'project.json'], cwd=project, check=True)
-devices = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', 'available', '--json'], text=True))['devices']
-phone = next(device for group in devices.values() for device in group if 'iPhone' in device['name'])
-subprocess.run(['xcodebuild', '-project', 'GodotBridgeTests.xcodeproj', '-scheme', 'BridgeTests', '-destination', 'platform=iOS Simulator,id=' + phone['udid'], '-derivedDataPath', 'build', 'test'], cwd=project, check=True)
+destination = os.environ.get('TEST_DESTINATION')
+if not destination:
+    devices = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', 'available', '--json'], text=True))['devices']
+    phone = next(device for group in devices.values() for device in group if 'iPhone' in device['name'])
+    destination = 'platform=iOS Simulator,id=' + phone['udid']
+subprocess.run(['xcodebuild', '-project', 'GodotBridgeTests.xcodeproj', '-scheme', 'BridgeTests', '-destination', destination, '-derivedDataPath', 'build', 'test'], cwd=project, check=True)
