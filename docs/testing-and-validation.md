@@ -1,6 +1,22 @@
 # Qualification record
 
-## Current native pins
+## Experience goal and eligibility pins
+
+iOS `45af488ea507429c0da2c7659ca971ee45460efb` and Android
+`af804278a226282e8e3abdea7c48385901b79638` implement the Experience policy
+hard cut: one optional goal, retained conversion measurement, presentation-safe
+exits, and offer-specific access checks. Milestone and old policy payloads are
+rejected. The iOS pin additionally bounds retained subscriber-delivery retries
+while preserving original eligibility and capture order.
+
+Both native SDK gates passed. `python3 scripts/prepare-native.py` and
+`python3 scripts/check.py` passed at these pins: native artifact rebuild, three
+Python tests, headless Godot/GDScript checks, Android bridge tests/lint/build,
+and six iOS bridge tests.
+Rendered goal/eligibility acceptance remains part of the coordinated platform
+cutover.
+
+## Previous video SDK pin qualification
 
 iOS `1e6970f306a9dac2ed567a239bf0e64a83e2d7cc` and Android
 `20f9d42f7d5fe1cba6e2426d63c24499eb966ce7` include shared immutable-video
