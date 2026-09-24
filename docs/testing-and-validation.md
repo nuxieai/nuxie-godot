@@ -2,21 +2,27 @@
 
 ## Experience goal and eligibility pins
 
-iOS `9c278ef24852d5480700fa55aaa62d4cc097290f` and Android
-`203016ac2ddeff3a7f5c6161aa886571a49e4eff` implement the Experience policy
+iOS `8c41617716c5c5086aba44e0d64f048692c515ae` and Android
+`0cbe8086068eb1a0d7e1c53c4440de4c9e3bd5ae` implement the Experience policy
 hard cut: one optional goal, retained conversion measurement, presentation-safe
-exits, and offer-specific access checks. Milestone and old policy payloads are
-rejected. The iOS pin additionally bounds retained subscriber-delivery retries
-while preserving original eligibility and capture order. Both SDKs complete
-terminal dismissals before presentation without manufacturing screen events.
+exits, and offer-specific access checks. Both preserve internal action and
+renderer origins through redaction, durable capture, and recovery; ordinary
+analytics IDs cannot authorize direct custom attribution. Old milestone/policy
+payloads are rejected. Terminal dismissals before presentation complete without
+manufacturing screen events.
 
-Both native SDK gates passed at these pins. `python3 scripts/prepare-native.py`
-passed, including release/debug iOS device/simulator XCFrameworks and Android
-bridge artifacts. `python3 scripts/check.py` passed three Python tests, pinned
-Godot headless imports, 69 GDScript checks, Android bridge tests/lint/debug/release
-assembly, and six iOS bridge tests. The Swift package lock matches the iOS pin.
-Rendered goal/eligibility acceptance remains part of the coordinated platform
-cutover.
+Both native SDK full gates passed at these pins. The iOS timestamp correction
+preserves millisecond occurrence ordering for renderer goals. Native preparation
+and `python3 scripts/check.py` passed (4559 exit 0): three Python tests, pinned
+Godot imports and client checks, Android bridge tests/lint/builds, and six iOS
+bridge tests. Preparation produced Android Maven/bridge artifacts and iOS
+device/simulator XCFrameworks; the Swift lock resolves the exact iOS revision.
+Logs: `/tmp/nuxie-goal-clock-godot-{prepare,full}.txt`.
+
+The parent eight-case iOS/server core acceptance passed at `a7c5b5d094`, including
+renderer goals with exits enabled/disabled and owned-offer routing. This is
+native behavioral evidence; the wrapper checks prove bridge and host integration.
+Coordinated delivery remains pending.
 
 ## Previous video SDK pin qualification
 
