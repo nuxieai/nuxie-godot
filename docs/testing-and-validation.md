@@ -2,12 +2,13 @@
 
 ## Experience goal and eligibility pins
 
-iOS `b379b06ff0e1df0bf3d9325309518b282c0a766b` and Android
-`9097dc960c6662c0108f3d7e94a661a20ff99413` implement the Experience policy
+iOS `9c278ef24852d5480700fa55aaa62d4cc097290f` and Android
+`203016ac2ddeff3a7f5c6161aa886571a49e4eff` implement the Experience policy
 hard cut: one optional goal, retained conversion measurement, presentation-safe
 exits, and offer-specific access checks. Milestone and old policy payloads are
 rejected. The iOS pin additionally bounds retained subscriber-delivery retries
-while preserving original eligibility and capture order.
+while preserving original eligibility and capture order. Both SDKs complete
+terminal dismissals before presentation without manufacturing screen events.
 
 Both native SDK gates passed at these pins. `python3 scripts/prepare-native.py`
 passed, including release/debug iOS device/simulator XCFrameworks and Android
