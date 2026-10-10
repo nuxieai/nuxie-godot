@@ -1,0 +1,38 @@
+load("@rules_kotlin//kotlin:core.bzl", "define_kt_toolchain", "kt_javac_options", "kt_kotlinc_options")
+load("@rules_python//python:py_binary.bzl", "py_binary")
+load("@rules_python//python:py_library.bzl", "py_library")
+
+package(default_visibility = ["//visibility:public"])
+exports_files(["native_artifacts.bzl", "native_artifacts.py"])
+kt_kotlinc_options(name = "kotlinc_options", jvm_target = "17", x_jvm_default = "all")
+kt_javac_options(name = "javac_options", release = "17")
+define_kt_toolchain(
+    name = "kotlin_toolchain",
+    language_version = "2.0",
+    api_version = "2.0",
+    jvm_target = "17",
+    kotlinc_options = ":kotlinc_options",
+    javac_options = ":javac_options",
+    experimental_build_tools_api = False,
+    jvm_stdlibs = ["@bridge_maven//:org_jetbrains_kotlin_kotlin_stdlib", "@rules_kotlin//kotlin/compiler:annotations"],
+    jvm_runtime = ["@bridge_maven//:org_jetbrains_kotlin_kotlin_stdlib"],
+)
+py_binary(name = "bridge_artifacts", srcs = ["bridge_artifacts.py"])
+py_binary(name = "test_suite", srcs = ["test_suite.py"])
+
+
+py_binary(name = "scons", srcs = ["scons_main.py"], main = "scons_main.py", deps = ["@scons_src//:scons"])
+py_binary(name = "generate_godot_headers", srcs = ["generate_godot_headers.py"])
+
+exports_files(["Bridge.plist"])
+
+exports_files(["locks/bridge_maven_install.json"])
+
+py_library(
+    name = "sdk_tools",
+    srcs = ["sdk.py", "android_sdk.py", "native_prepare.py", "native_artifacts.py"],
+    imports = ["."],
+)
+exports_files(["source_test_main.py"])
+
+exports_files(["rules-kotlin-2.0-adapter.patch"])

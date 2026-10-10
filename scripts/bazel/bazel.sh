@@ -18,7 +18,7 @@ else
   bazel_bin="$ROOT_DIR/scripts/bazel/launcher.py"
 fi
 
-startup_args=()
+startup_args=(--nosystem_rc --nohome_rc)
 if [[ -n "${NUXIE_BAZEL_CACHE_DIR+x}" ]]; then
   cache_options="$(python3 "$ROOT_DIR/scripts/bazel/cache.py")"
   startup_args+=("$cache_options")
