@@ -7,6 +7,12 @@ bazel_dep(name = "rules_apple", version = "4.5.0")
 bazel_dep(name = "rules_swift", version = "4.1.0")
 bazel_dep(name = "rules_cc", version = "0.2.20")
 bazel_dep(name = "rules_android", version = "0.8.0")
+single_version_override(
+    module_name = "rules_android",
+    version = "0.8.0",
+    patches = ["//scripts/bazel:rules-android-min-sdk-23.patch"],
+    patch_strip = 1,
+)
 bazel_dep(name = "rules_java", version = "9.3.0")
 bazel_dep(name = "rules_kotlin", version = "2.1.9")
 single_version_override(
