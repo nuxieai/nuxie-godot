@@ -21,3 +21,38 @@ python3 -B -m unittest discover -s scripts/bazel -p 'test_cache.py'
 
 This workspace establishes the cache policy for the SDK's Bazel migration.
 Existing host-language build and qualification commands remain available.
+
+## Direct bridge builds and package preparation
+
+```sh
+python3 scripts/bazel/sdk.py test-android
+NUXIE_IOS_SIMULATOR_ID=<available-simulator-id> python3 scripts/bazel/sdk.py test-ios
+python3 scripts/prepare-native.py
+python3 scripts/pack.py
+python3 scripts/check.py
+```
+
+Kotlin sources compile in `//:android_bridge`; Godot's checksum-pinned Android
+AAR is a compile-only engine API. `//:android_bridge_aar` preserves the owning
+consumer rules. Swift compiles in `//:ios_bridge`; the C++ iOS plugin compiles in
+`//:ios_plugin`. Bazel's Apple rules produce each device/simulator slice and
+both Debug/Release XCFramework products consumed by the existing addon package.
+Official SCons generators produce declared headers from the checksum-pinned
+Godot 4.7.2 source archive; they do not compile the plugin or engine.
+
+The standalone native helper prepares exact `NATIVE-PINS.json` revisions in
+`.native/`. A parent build may provide absolute `NUXIE_IOS_ARTIFACTS` and
+`NUXIE_ANDROID_ARTIFACTS` paths to its already prepared SDK receipts. Both paths
+use the same revision/hash verifier and retain native resources and licenses.
+Android Maven files, both bridge AAR variants and both XCFramework variants are
+staged only in this checkout. Release packaging includes only the selected
+source-addressed native Maven coordinate.
+
+`scripts/check.py` remains the independent public contract: the pinned Godot
+Editor imports and executes GDScript behavior tests, Android lint remains an
+upstream analyzer, and direct Bazel bridge targets run JUnit and XCTest. CI uses
+`scripts/ci.sh`, the same compiler targets and the same package/export contract.
+It requires Xcode, Java 21, Android SDK 36/build-tools 36.0.0 and the native SDK's
+pinned NDK. Set `NUXIE_IOS_SIMULATOR_ID` to the test simulator. Compiler downloads
+and matching actions share root/runtime caches; `.native/`, staged addon files,
+Bazel output bases and engine import products remain checkout-local.

@@ -32,7 +32,7 @@ for variant in ['debug', 'release']:
 shutil.copy2(root / 'NATIVE-PINS.json', addon / 'native-pins.json')
 notices = addon / 'licenses'
 notices.mkdir(exist_ok=True)
-for name, source in [('Godot.txt', root / '.native/godot/LICENSE.txt'), ('Godot-COPYRIGHT.txt', root / '.native/godot/COPYRIGHT.txt'), ('Nuxie-Android.txt', root / '.native/android/LICENSE'), ('Nuxie-iOS.txt', root / 'ios-plugin/.build/DerivedData/SourcePackages/checkouts/nuxie-ios/LICENSE')]:
+for name, source in [(name, root / '.native/licenses' / name) for name in ['Godot.txt', 'Godot-COPYRIGHT.txt', 'Nuxie-Android.txt', 'Nuxie-iOS.txt']]:
     if not source.is_file():
         raise SystemExit('Missing pinned dependency license: ' + str(source))
     shutil.copy2(source, notices / name)

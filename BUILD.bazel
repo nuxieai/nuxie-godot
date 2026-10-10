@@ -1,0 +1,146 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//python:py_test.bzl", "py_test")
+load("@rules_apple//apple:apple.bzl", "apple_static_xcframework")
+load("//scripts/bazel:godot_headers.bzl", "godot_headers")
+load("@rules_swift//swift:swift.bzl", "swift_library")
+load("@rules_apple//apple:apple.bzl", "apple_xcframework")
+load("@rules_apple//apple:ios.bzl", "ios_unit_test")
+load("@rules_kotlin//kotlin:android.bzl", "kt_android_library", "kt_android_local_test")
+load("//scripts/bazel:bridge_artifacts.bzl", "bridge_aar", "bridge_framework_module")
+load("@rules_android//android:rules.bzl", "aar_import")
+load("@rules_java//java:java_library.bzl", "java_library")
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files(["NATIVE-PINS.json"])
+config_setting(name = "release_configuration", values = {"compilation_mode": "opt"})
+
+swift_library(
+    name = "ios_bridge",
+    module_name = "NuxieGodotBridge",
+    srcs = glob(["ios-plugin/Sources/NuxieGodotBridge/*.swift"]),
+    deps = ["@nuxie_native_ios//:sdk"],
+    copts = ["-swift-version", "5", "-strict-concurrency=complete"],
+    features = ["swift.enable_library_evolution", "swift.emit_swiftinterface"],
+    defines = select({":release_configuration": [], "//conditions:default": ["DEBUG"]}),
+    target_compatible_with = ["@platforms//os:ios"],
+)
+
+bridge_framework_module(name = "ios_framework_module", deps = [":ios_bridge"])
+
+apple_xcframework(
+    name = "ios_bridge_xcframework",
+    bundle_name = "NuxieGodotBridge",
+    bundle_id = "ai.nuxie.godot.bridge",
+    deps = [":ios_framework_module"],
+    infoplists = ["//scripts/bazel:Bridge.plist"],
+    ios = {"device": ["arm64"], "simulator": ["arm64", "x86_64"]},
+    minimum_os_versions = {"ios": "15.0"},
+    families_required = {"ios": ["iphone", "ipad"]},
+)
+
+genrule(
+    name = "android_manifest",
+    srcs = ["android-plugin/src/main/AndroidManifest.xml"],
+    outs = ["BridgeAndroidManifest.xml"],
+    tools = ["//scripts/bazel:bridge_artifacts"],
+    cmd = "$(location //scripts/bazel:bridge_artifacts) manifest --input $(SRCS) --output $@ --package ai.nuxie.godot --placeholder godotPluginName=NuxieGodot --placeholder godotPluginPackageName=ai.nuxie.godot",
+)
+
+aar_import(name = "godot_aar", aar = "@godot_android//file")
+# Godot owns this engine ABI; the customer supplies it at runtime.
+java_library(name = "godot_api", exports = [":godot_aar"], neverlink = True)
+genrule(
+    name = "godot_build_config",
+    outs = ["BuildConfig.java"],
+    cmd = "echo 'package ai.nuxie.godot; public final class BuildConfig { public static final String GODOT_PLUGIN_NAME = \"NuxieGodot\"; }' > $@",
+)
+
+BRIDGE_DEPS = [
+    "@nuxie_native_android//:sdk",
+    "@bridge_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_android",
+    "@bridge_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
+] + [":godot_api"]
+kt_android_library(
+    name = "android_bridge",
+    srcs = glob(["android-plugin/src/main/**/*.kt"]) + glob(["android-plugin/src/main/**/*.java"], allow_empty = True) + [":godot_build_config"],
+    manifest = ":android_manifest",
+    custom_package = "ai.nuxie.godot",
+    deps = BRIDGE_DEPS,
+)
+bridge_aar(
+    name = "android_bridge_aar",
+    library = ":android_bridge",
+    consumer_rules = "android-plugin/consumer-rules.pro",
+)
+
+swift_library(
+    name = "ios_test_library",
+    testonly = True,
+    module_name = "NuxieGodotBridgeTests",
+    srcs = glob(["ios-plugin/Tests/NuxieGodotBridgeTests/*.swift"]),
+    deps = [":ios_bridge", "@nuxie_native_ios//:sdk"],
+    copts = ["-swift-version", "5"],
+    target_compatible_with = ["@platforms//os:ios"],
+)
+ios_unit_test(
+    name = "ios_bridge_test",
+    deps = [":ios_test_library"],
+    minimum_os_version = "15.0",
+    tags = ["manual"],
+)
+
+genrule(
+    name = "android_test_suite",
+    srcs = glob(["android-plugin/src/test/**/*.kt"]),
+    outs = ["SdkTestSuite.java"],
+    tools = ["//scripts/bazel:test_suite"],
+    cmd = "$(location //scripts/bazel:test_suite) --output $@ $(SRCS)",
+)
+kt_android_local_test(
+    name = "android_bridge_test",
+    srcs = glob(["android-plugin/src/test/**/*.kt"]) + [":android_test_suite"],
+    associates = [":android_bridge"],
+    custom_package = "ai.nuxie.godot",
+    manifest = ":android_manifest",
+    manifest_values = {"minSdkVersion": "23", "targetSdkVersion": "36"},
+    test_class = "ai.nuxie.bazel.SdkTestSuite",
+    deps = BRIDGE_DEPS + ["@bridge_maven//:junit_junit"],
+    jvm_flags = ["-Xmx1g", "-Djava.security.manager=allow"],
+    tags = ["manual"],
+)
+
+# The official generators run once for the common template-release header set;
+# Bazel owns each architecture's C++ compiler action and archive.
+godot_headers(name = "godot_headers", archive = "@godot_source//file", version = "4.7.2")
+cc_library(
+    name = "ios_plugin",
+    srcs = ["ios-plugin/Sources/NuxieGodotPlugin/nuxie_godot_plugin.cpp"],
+    hdrs = [":godot_headers"],
+    copts = [
+        "-std=gnu++17", "-O2", "-fno-exceptions", "-fblocks", "-fvisibility=hidden",
+        "-I$(execpath :godot_headers)", "-I$(execpath :godot_headers)/platform/ios",
+    ],
+    defines = [
+        "NDEBUG", "PTRCALL_ENABLED", "NEED_LONG_INT", "THREADS_ENABLED", "IOS_ENABLED",
+        "APPLE_EMBEDDED_ENABLED", "UNIX_ENABLED", "COREAUDIO_ENABLED", "NS_BLOCK_ASSERTIONS=1",
+    ] + select({":release_configuration": [], "//conditions:default": ["DEBUG_ENABLED"]}),
+    target_compatible_with = ["@platforms//os:ios"],
+)
+apple_static_xcframework(
+    name = "ios_plugin_xcframework",
+    bundle_name = "nuxie_godot_plugin",
+    deps = [":ios_plugin"],
+    ios = {"device": ["arm64"], "simulator": ["arm64", "x86_64"]},
+    minimum_os_versions = {"ios": "15.0"},
+)
+
+platform(name = "android_arm64", constraint_values = ["@platforms//os:android", "@platforms//cpu:arm64"])
+
+py_test(
+    name = "source_tests",
+    srcs = ["tests/test_pack.py", "tests/test_xcframework_build.py", "//scripts/bazel:source_test_main.py"],
+    main = "//scripts/bazel:source_test_main.py",
+    data = ["scripts/pack.py", "NATIVE-PINS.json"],
+    deps = ["//scripts/bazel:sdk_tools"],
+)

@@ -1,1 +1,100 @@
 module(name = "nuxie_godot", version = "0.1.0")
+
+
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "apple_support", version = "2.8.0")
+bazel_dep(name = "rules_apple", version = "4.5.0")
+bazel_dep(name = "rules_swift", version = "4.1.0")
+bazel_dep(name = "rules_cc", version = "0.2.20")
+bazel_dep(name = "rules_android", version = "0.8.0")
+bazel_dep(name = "rules_java", version = "9.3.0")
+bazel_dep(name = "rules_kotlin", version = "2.1.9")
+single_version_override(
+    module_name = "rules_kotlin",
+    version = "2.1.9",
+    patches = ["//scripts/bazel:rules-kotlin-2.0-adapter.patch"],
+    patch_strip = 1,
+)
+bazel_dep(name = "rules_jvm_external", version = "6.9")
+bazel_dep(name = "rules_python", version = "1.7.0")
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(python_version = "3.12")
+use_repo(python, "python_3_12")
+
+kotlin = use_extension("@rules_kotlin//src/main/starlark/core/repositories:bzlmod_setup.bzl", "rules_kotlin_extensions")
+kotlin.kotlinc_version(version = "2.0.21", sha256 = "0352c0a45bd22f80f6b26e485cd04da8047baa5de54865281fb9f89a4a7bcf2a")
+use_repo(kotlin, "com_github_jetbrains_kotlin")
+register_toolchains("//scripts/bazel:kotlin_toolchain")
+
+sdk = use_extension("@rules_android//rules/android_sdk_repository:rule.bzl", "android_sdk_repository_extension")
+sdk.configure(api_level = 36, build_tools_version = "36.0.0")
+use_repo(sdk, "androidsdk")
+register_toolchains("@androidsdk//:sdk-toolchain", "@androidsdk//:all")
+
+maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+# Match the native SDK's resource-tool classpath without changing SDK Maven APIs.
+use_repo(maven, "rules_android_maven")
+maven.override(
+    name = "android_ide_common_30_1_3",
+    coordinates = "com.google.guava:guava",
+    target = "@rules_android_maven//:com_google_guava_guava",
+)
+maven.install(
+    name = "bridge_maven",
+    lock_file = "//scripts/bazel:locks/bridge_maven_install.json",
+    fail_if_repin_required = True,
+    artifacts = [
+        "com.android.billingclient:billing:9.1.0",
+        "androidx.sqlite:sqlite-framework:2.6.2",
+        "org.jetbrains.kotlin:kotlin-stdlib:2.1.20",
+        "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0",
+        "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.9.0",
+        "org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.2",
+        "junit:junit:4.13.2",
+    ],
+    repositories = ["https://dl.google.com/dl/android/maven2", "https://repo.maven.apache.org/maven2"],
+    aar_import_bzl_label = "@rules_android//android:rules.bzl",
+    use_starlark_android_rules = True,
+    version_conflict_policy = "pinned",
+)
+use_repo(maven, "bridge_maven")
+
+native = use_extension("//scripts/bazel:native_artifacts.bzl", "native_artifacts")
+native.artifacts(
+    pins = "//:NATIVE-PINS.json",
+    android_dependencies = {
+        "@bridge_maven//:com_android_billingclient_billing": "com.android.billingclient:billing:9.1.0",
+        "@bridge_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_android": "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0",
+        "@bridge_maven//:org_jetbrains_kotlin_kotlin_stdlib": "org.jetbrains.kotlin:kotlin-stdlib:2.0.21",
+        "@bridge_maven//:androidx_sqlite_sqlite_framework": "androidx.sqlite:sqlite-framework:2.6.2",
+        "@bridge_maven//:org_jetbrains_kotlinx_kotlinx_serialization_json": "org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.2",
+    },
+)
+use_repo(native, "nuxie_native_ios", "nuxie_native_android")
+
+godot_aar = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+godot_aar(
+    name = "godot_android",
+    url = "https://repo.maven.apache.org/maven2/org/godotengine/godot/4.7.2.stable/godot-4.7.2.stable.aar",
+    sha256 = "8791eecfe7c96a4de2d188a0bccfe9b83b92589a5a6825847473416a990e8629",
+    downloaded_file_path = "godot.aar",
+)
+
+godot_source = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+godot_source(
+    name = "godot_source",
+    url = "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/godot-4.7.2-stable.tar.xz",
+    sha256 = "a18ce0ccec3ecc40b0dd6c4f5132ca934e9fb7c2979717940ff32aee1eb35481",
+    downloaded_file_path = "godot-source.tar.xz",
+)
+scons = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+scons(
+    name = "scons_src",
+    url = "https://files.pythonhosted.org/packages/7d/c9/2f430bb39e4eccba32ce8008df4a3206df651276422204e177a09e12b30b/scons-4.10.1.tar.gz",
+    sha256 = "99c0e94a42a2c1182fa6859b0be697953db07ba936ecc9817ae0d218ced20b15",
+    strip_prefix = "scons-4.10.1",
+    build_file_content = """load("@rules_python//python:py_library.bzl", "py_library")
+py_library(name = "scons", srcs = glob(["SCons/**/*.py"]), imports = ["."], visibility = ["//visibility:public"])
+""",
+)

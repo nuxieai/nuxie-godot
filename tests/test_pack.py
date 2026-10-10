@@ -7,7 +7,7 @@ import tempfile
 import unittest
 import zipfile
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).absolute().parents[1]
 
 
 class PackageTests(unittest.TestCase):
@@ -23,8 +23,8 @@ class PackageTests(unittest.TestCase):
             write(f'addons/nuxie/android/bin/{variant}/NuxieGodot-{variant}.aar')
             for bridge in ('NuxieGodotBridge', 'nuxie_godot_plugin'):
                 write(f'ios-plugin/.build/xcframework/{bridge}.{variant}.xcframework/fixture')
-        for name in ('.native/godot/LICENSE.txt', '.native/godot/COPYRIGHT.txt', '.native/android/LICENSE',
-                     'ios-plugin/.build/DerivedData/SourcePackages/checkouts/nuxie-ios/LICENSE'):
+        for name in ('.native/licenses/Godot.txt', '.native/licenses/Godot-COPYRIGHT.txt',
+                     '.native/licenses/Nuxie-Android.txt', '.native/licenses/Nuxie-iOS.txt'):
             write(name)
         base = 'ai/nuxie/nuxie-android'
         for revision in (['old', 'selected'] if include_selected else ['old']):

@@ -1,104 +1,90 @@
-"""Exercise the real build script against supported Xcode archive layouts."""
+"""Package real Bazel archive layouts while preserving native resources and slices."""
+import hashlib
 import json
-import os
 from pathlib import Path
-import shutil
-import subprocess
+import plistlib
+import sys
 import tempfile
 import unittest
+from unittest.mock import patch
+import zipfile
 
-ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).absolute().parents[1] / 'scripts/bazel'))
+import sdk
 
-FAKE_TOOL = r'''#!/usr/bin/env python3
-import json, os, sys
-from pathlib import Path
-import shutil
-name = Path(sys.argv[0]).name
-args = sys.argv[1:]
-def value(flag): return args[args.index(flag) + 1]
-if name == 'scons':
-    pass
-elif name == 'ditto':
-    shutil.copytree(args[0], args[1], dirs_exist_ok=True)
-elif name == 'xcrun':
-    if '--show-sdk-path' in args:
-        print(os.environ['FAKE_SDK'])
-    elif '-verify_arch' in args:
-        actual = json.loads(Path(args[1]).read_text())
-        assert set(args[args.index('-verify_arch') + 1:]) <= set(actual), actual
-    else:
-        output = value('-o' if '-o' in args else '-output')
-        if 'clang++' in args:
-            architectures = [value('-arch')]
-        else:
-            architectures = sorted({arch for arg in args if arg.endswith(('.o', '.a')) and arg != output
-                                    for arch in json.loads(Path(arg).read_text())})
-        Path(output).write_text(json.dumps(architectures))
-elif args[0] == 'archive':
-    archive = Path(value('-archivePath'))
-    simulator = archive.name.endswith('-simulator.xcarchive')
-    layout = os.environ['SIMULATOR_LAYOUT' if simulator else 'DEVICE_LAYOUT']
-    framework = archive / 'Products' / layout / 'NuxieGodotBridge.framework'
-    framework.mkdir(parents=True)
-    architectures = next(arg.removeprefix('ARCHS=') for arg in args if arg.startswith('ARCHS=')).split()
-    (framework / 'NuxieGodotBridge').write_text(json.dumps(architectures))
-    sdk = 'iphonesimulator' if simulator else 'iphoneos'
-    bundle = Path(value('-derivedDataPath')) / 'Build/Intermediates.noindex/ArchiveIntermediates/NuxieGodotBridge/IntermediateBuildFilesPath/UninstalledProducts' / sdk / 'Nuxie_Nuxie.bundle'
-    bundle.mkdir(parents=True, exist_ok=True)
-    (bundle / 'fixture.txt').write_text('resources')
-else:
-    assert args[0] == '-create-xcframework'
-    for i, arg in enumerate(args):
-        if arg == '-framework':
-            framework = Path(args[i + 1])
-            assert framework.is_dir(), framework
-            assert (framework / 'Nuxie_Nuxie.bundle/fixture.txt').read_text() == 'resources'
-            expected = {'arm64', 'x86_64'} if '-simulator' in str(framework) else {'arm64'}
-            assert set(json.loads((framework / 'NuxieGodotBridge').read_text())) == expected
-        elif arg == '-library':
-            library = Path(args[i + 1])
-            expected = {'arm64', 'x86_64'} if '-simulator' in str(library) else {'arm64'}
-            assert set(json.loads(library.read_text())) == expected
-    Path(value('-output')).mkdir()
-'''
-
+PIN = '1' * 40
 
 class XCFrameworkBuildTests(unittest.TestCase):
-    def test_archive_layouts_preserve_resources_and_required_architectures(self):
-        for device, simulator in [
-            ('usr/local/lib', 'Library/Frameworks'),
-            ('Library/Frameworks', 'usr/local/lib'),
-        ]:
-            with self.subTest(device=device, simulator=simulator), tempfile.TemporaryDirectory() as temp:
-                root = Path(temp)
-                scripts = root / 'ios-plugin/scripts'
-                scripts.mkdir(parents=True)
-                shutil.copy2(ROOT / 'ios-plugin/scripts/build_xcframework.sh', scripts)
-                pin = json.loads((ROOT / 'NATIVE-PINS.json').read_text())['godot']
-                (root / 'NATIVE-PINS.json').write_text(json.dumps({'godot': pin}))
-                engine = root / 'engine'
-                engine.mkdir()
-                (engine / 'version.py').write_text('\n'.join(
-                    f'{name} = {value}' for name, value in zip(('major', 'minor', 'patch'), pin.split('.'))
-                ))
-                binaries = root / 'bin'
-                binaries.mkdir()
-                for name in ('scons', 'xcodebuild', 'xcrun', 'ditto'):
-                    tool = binaries / name
-                    tool.write_text(FAKE_TOOL)
-                    tool.chmod(0o755)
-                result = subprocess.run(
-                    ['bash', str(scripts / 'build_xcframework.sh')],
-                    env={**os.environ, 'PATH': str(binaries) + os.pathsep + os.environ['PATH'],
-                         'GODOT_SOURCE_DIR': str(engine), 'SCONS_BIN': str(binaries / 'scons'),
-                         'FAKE_SDK': str(root), 'DEVICE_LAYOUT': device, 'SIMULATOR_LAYOUT': simulator},
-                    capture_output=True, text=True,
-                )
-                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-                for variant in ('debug', 'release'):
-                    for artifact in ('NuxieGodotBridge', 'nuxie_godot_plugin'):
-                        self.assertTrue((root / 'ios-plugin/.build/xcframework' / f'{artifact}.{variant}.xcframework').is_dir())
+    def fixtures(self, root, configuration, prefix='', missing_architecture=False):
+        (root / '.native').mkdir()
+        (root / 'NATIVE-PINS.json').write_text(json.dumps({'ios': {'revision': PIN}}))
+        native = root / '.native/native-products'
+        products = []
+        for selected in ('ios-device', 'ios-simulator'):
+            resource = selected + '/' + configuration + '/Nuxie_Nuxie.bundle'
+            (native / resource).mkdir(parents=True)
+            (native / resource / 'fixture.txt').write_text('owned SDK resources')
+            products.append({'platform': selected, 'configuration': configuration, 'resourceBundles': [resource]})
+        (native / 'licenses').mkdir()
+        (native / 'licenses/LICENSE').write_text('native license')
+        receipt = {'schemaVersion': 1, 'sdk': 'ios', 'sourceRevision': PIN, 'sourceDirty': False, 'products': products,
+                   'artifacts': [{'path': path.relative_to(native).as_posix(), 'size': path.stat().st_size,
+                                  'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+                                 for path in native.rglob('*') if path.is_file()]}
+        manifest = native / 'sdk-artifacts.json'
+        manifest.write_text(json.dumps(receipt))
+        archives = {}
+        for name in ('NuxieGodotBridge', 'nuxie_godot_plugin'):
+            bundle = prefix + name + '.xcframework/'
+            slices = [dict(LibraryIdentifier='ios-arm64', LibraryPath=name + '.framework' if name == 'NuxieGodotBridge' else 'lib' + name + '.a',
+                           SupportedPlatform='ios', SupportedArchitectures=['arm64']),
+                      dict(LibraryIdentifier='ios-arm64_x86_64-simulator', LibraryPath=name + '.framework' if name == 'NuxieGodotBridge' else 'lib' + name + '.a',
+                           SupportedPlatform='ios', SupportedPlatformVariant='simulator', SupportedArchitectures=['arm64'] if missing_architecture else ['arm64','x86_64'])]
+            archive = root / (name + '.zip')
+            with zipfile.ZipFile(archive, 'w') as compressed:
+                compressed.writestr(bundle + 'Info.plist', plistlib.dumps({'AvailableLibraries': slices}))
+                for item in slices:
+                    binary = item['LibraryPath'] + ('/' + name if name == 'NuxieGodotBridge' else '')
+                    compressed.writestr(bundle + item['LibraryIdentifier'] + '/' + binary, json.dumps(item['SupportedArchitectures']))
+            archives['//:ios_bridge_xcframework' if name == 'NuxieGodotBridge' else '//:ios_plugin_xcframework'] = archive
+        headers = root / 'godot-headers'
+        headers.mkdir()
+        (headers / 'LICENSE.txt').write_text('Godot license')
+        (headers / 'COPYRIGHT.txt').write_text('Godot copyright')
+        return manifest, archives, headers
 
+
+    def test_archive_layouts_keep_resources_and_all_device_simulator_architectures(self):
+        for prefix in ('', 'products/'):
+            for configuration in ('Debug', 'Release'):
+                with self.subTest(prefix=prefix, configuration=configuration), tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory)
+                    manifest, archives, headers = self.fixtures(root, configuration, prefix)
+                    def verify_architecture(command, **_kwargs):
+                        self.assertEqual(command[:2], ['xcrun', 'lipo'])
+                        self.assertEqual(command[3], '-verify_arch')
+                        self.assertEqual(set(json.loads(Path(command[2]).read_text())), set(command[4:]))
+                    with patch.object(sdk, 'ROOT', root), patch.object(sdk, 'prepare', return_value={'ios': manifest}), \
+                         patch.object(sdk, 'bazel'), patch.object(sdk, 'artifact', side_effect=lambda label, *_args: archives[label]), \
+                         patch.object(sdk, 'outputs', return_value=[headers]), patch.object(sdk.subprocess, 'run', side_effect=verify_architecture):
+                        product = sdk.ios_xcframework(configuration)
+                    info = plistlib.loads((product / 'Info.plist').read_bytes())
+                    for item in info['AvailableLibraries']:
+                        framework = product / item['LibraryIdentifier'] / item['LibraryPath']
+                        self.assertEqual((framework / 'Nuxie_Nuxie.bundle/fixture.txt').read_text(), 'owned SDK resources')
+                    plugin = product.parent / ('nuxie_godot_plugin.' + configuration.lower() + '.xcframework')
+                    self.assertTrue(plugin.is_dir())
+                    self.assertEqual((root / '.native/licenses/Godot.txt').read_text(), 'Godot license')
+
+    def test_incomplete_simulator_slice_is_not_published(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest, archives, headers = self.fixtures(root, 'Release', missing_architecture=True)
+            with patch.object(sdk, 'ROOT', root), patch.object(sdk, 'prepare', return_value={'ios': manifest}), \
+                 patch.object(sdk, 'bazel'), patch.object(sdk, 'artifact', side_effect=lambda label, *_args: archives[label]), \
+                 self.assertRaisesRegex(ValueError, 'both simulator architectures'):
+                sdk.ios_xcframework('Release')
+            self.assertFalse((root / 'ios-plugin/.build/xcframework').exists())
 
 if __name__ == '__main__':
     unittest.main()
