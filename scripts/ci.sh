@@ -41,4 +41,4 @@ fi
 
 python3 scripts/prepare-native.py
 python3 scripts/pack.py
-python3 scripts/check.py
+python3 scripts/bazel/ios_simulator.py -- python3 scripts/check.py
