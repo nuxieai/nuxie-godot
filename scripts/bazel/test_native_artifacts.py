@@ -7,7 +7,7 @@ import plistlib
 import tempfile
 import unittest
 
-from native_artifacts import verify
+from native_artifacts import copy_verified_file, copy_verified_tree, inventory, verify
 
 
 REVISION = "1" * 40
@@ -79,6 +79,57 @@ class NativeArtifactsTests(unittest.TestCase):
                     path = self.write(prefix + stem + suffix)
                     product[key].append({"module": module, "architecture": architecture, "path": path})
         return self.manifest("ios", products=[product], runtime={"path": runtime, "checksum": "3" * 64, "sourceCommit": "4" * 40}, symlinks=[])
+
+    def test_resource_publication_excludes_extra_files_beside_receipt_contents(self):
+        manifest = self.ios()
+        bundle = "ios-simulator/Release/Nuxie_Nuxie.bundle"
+        self.write(bundle + "/unrecorded.png", b"not in the producer receipt")
+        _, root, files, links = inventory(manifest, "ios", REVISION)
+        destination = self.root / "published/Nuxie_Nuxie.bundle"
+        copy_verified_tree(root, bundle, destination, files, links)
+        self.assertEqual((destination / "PrivacyInfo.xcprivacy").read_bytes(), b"artifact")
+        self.assertFalse((destination / "unrecorded.png").exists())
+
+    def test_resource_publication_preserves_verified_internal_symlinks(self):
+        manifest = self.ios()
+        bundle = "ios-simulator/Release/Nuxie_Nuxie.bundle"
+        (self.root / bundle / "current").symlink_to("PrivacyInfo.xcprivacy")
+        receipt = json.loads(manifest.read_text())
+        receipt["symlinks"] = [{"path": bundle + "/current", "target": "PrivacyInfo.xcprivacy"}]
+        manifest.write_text(json.dumps(receipt))
+        _, root, files, links = inventory(manifest, "ios", REVISION)
+        destination = self.root / "published/Nuxie_Nuxie.bundle"
+        copy_verified_tree(root, bundle, destination, files, links)
+        self.assertTrue((destination / "current").is_symlink())
+        self.assertEqual((destination / "current").read_bytes(), b"artifact")
+
+    def test_resource_symlink_cannot_leave_the_published_bundle(self):
+        manifest = self.ios()
+        bundle = "ios-simulator/Release/Nuxie_Nuxie.bundle"
+        target = "../Nuxie.framework/Nuxie"
+        (self.root / bundle / "outside").symlink_to(target)
+        receipt = json.loads(manifest.read_text())
+        receipt["symlinks"] = [{"path": bundle + "/outside", "target": target}]
+        manifest.write_text(json.dumps(receipt))
+        _, root, files, links = inventory(manifest, "ios", REVISION)
+        with self.assertRaisesRegex(ValueError, "leaves its published product tree"):
+            copy_verified_tree(root, bundle, self.root / "published", files, links)
+
+    def test_license_publication_requires_an_original_receipt_hash(self):
+        manifest = self.ios()
+        self.write("licenses/LICENSE", b"unrecorded license")
+        _, root, files, _ = inventory(manifest, "ios", REVISION)
+        with self.assertRaisesRegex(ValueError, "uninventoried artifact"):
+            copy_verified_file(root, "licenses/LICENSE", self.root / "published/LICENSE", files)
+        self.assertFalse((self.root / "published/LICENSE").exists())
+
+    def test_publication_rejects_a_file_changed_after_inventory_verification(self):
+        manifest = self.ios()
+        bundle = "ios-simulator/Release/Nuxie_Nuxie.bundle"
+        _, root, files, links = inventory(manifest, "ios", REVISION)
+        self.write(bundle + "/PrivacyInfo.xcprivacy", b"changed!")
+        with self.assertRaisesRegex(ValueError, "changed during publication"):
+            copy_verified_tree(root, bundle, self.root / "published", files, links)
 
     def test_android_carries_api_and_runtime_pom_edges(self):
         path = self.android()

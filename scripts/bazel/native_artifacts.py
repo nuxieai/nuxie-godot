@@ -12,6 +12,7 @@ import os
 from pathlib import Path, PurePosixPath
 import plistlib
 import re
+import shutil
 import sys
 import xml.etree.ElementTree as ET
 
@@ -75,6 +76,46 @@ def inventory(manifest_path, sdk, expected_revision):
             raise ValueError("Artifact symlink refers to unverified content: " + name)
         links[name] = target
     return receipt, root, files, links
+
+
+def copy_verified_file(root, value, destination, files):
+    """Publish one receipt-listed file and recheck the copied bytes."""
+    name = relative(value)
+    if name not in files:
+        raise ValueError("Cannot publish an uninventoried artifact: " + name)
+    destination = Path(destination)
+    if destination.is_symlink():
+        raise ValueError("Preserving publication symlink: " + str(destination))
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(Path(root) / name, destination)
+    item = files[name]
+    if destination.stat().st_size != item["size"] or sha256(destination) != item["sha256"]:
+        raise ValueError("Artifact changed during publication: " + name)
+
+
+def copy_verified_tree(root, value, destination, files, links):
+    """Copy only the receipt's files and internal symlinks for one product tree."""
+    name = relative(value)
+    source = Path(root) / name
+    destination = Path(destination)
+    prefix = name + "/"
+    selected = sorted(file for file in files if file.startswith(prefix))
+    if not selected:
+        raise ValueError("Cannot publish an empty or uninventoried artifact directory: " + name)
+    if destination.is_symlink():
+        raise ValueError("Preserving publication symlink: " + str(destination))
+    selected_links = {path: target for path, target in links.items() if path.startswith(prefix)}
+    for path in selected_links:
+        if not (Path(root) / path).resolve(strict=True).is_relative_to(source.resolve()):
+            raise ValueError("Artifact symlink leaves its published product tree: " + path)
+    for path in selected:
+        copy_verified_file(root, path, destination / Path(path).relative_to(name), files)
+    for path, target in selected_links.items():
+        output = destination / Path(path).relative_to(name)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        if output.is_symlink() and os.readlink(output) == target:
+            continue
+        output.symlink_to(target)
 
 
 def rule(kind, **attrs):

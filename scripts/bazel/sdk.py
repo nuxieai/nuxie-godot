@@ -16,7 +16,7 @@ import tempfile
 import zipfile
 
 from android_sdk import sdk_view
-from native_artifacts import inventory
+from native_artifacts import copy_verified_file, copy_verified_tree, inventory
 from native_prepare import prepare
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -165,7 +165,7 @@ def ios_xcframework(configuration):
     labels = ['//:ios_bridge_xcframework'] + (['//:ios_plugin_xcframework'] if SDK == 'godot' else [])
     bazel('build', labels, flags, env)
     pin = json.loads((ROOT / 'NATIVE-PINS.json').read_text())['ios']['revision']
-    receipt, native, _, _ = inventory(products['ios'], 'ios', pin)
+    receipt, native, files, links = inventory(products['ios'], 'ios', pin)
     destination = ROOT / ('ios-plugin/.build/xcframework' if SDK == 'godot' else '.native/xcframework')
     for label in labels:
         archive = artifact(label, flags, env, '.zip')
@@ -191,13 +191,13 @@ def ios_xcframework(configuration):
                     matches = [product for product in receipt['products'] if product['platform'] == native_platform and product['configuration'] == configuration]
                     if len(matches) != 1 or len(matches[0]['resourceBundles']) != 1:
                         raise ValueError('Prepared native products must carry one matching resource bundle')
-                    resource = native / matches[0]['resourceBundles'][0]
-                    shutil.copytree(resource, library / resource.name, dirs_exist_ok=True)
+                    resource = matches[0]['resourceBundles'][0]
+                    copy_verified_tree(native, resource, library / Path(resource).name, files, links)
             name = 'nuxie_godot_plugin' if label == '//:ios_plugin_xcframework' else MODULE
             publish_tree(bundle, destination / (name + '.' + configuration.lower() + '.xcframework'))
     licenses = ROOT / '.native/licenses'
     licenses.mkdir(exist_ok=True)
-    shutil.copy2(native / 'licenses/LICENSE', licenses / 'Nuxie-iOS.txt')
+    copy_verified_file(native, 'licenses/LICENSE', licenses / 'Nuxie-iOS.txt', files)
     if SDK == 'godot':
         headers = outputs('//:godot_headers', flags, env)
         if len(headers) != 1 or not headers[0].is_dir():

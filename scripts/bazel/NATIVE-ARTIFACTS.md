@@ -27,8 +27,11 @@ or their containing directories. Tags `ios_manifest` and `android_manifest`
 can select explicit absolute paths instead. The verifier rejects dirty native
 source, a source revision different from `NATIVE-PINS.json`, missing files,
 changed sizes or SHA-256 hashes, unsafe paths, and changed/escaping symlinks.
-Only receipt-verified files are exposed. The repository watches the prepared
-tree so replacing a product causes verification again.
+Only receipt-verified files are exposed. Apple resource publication likewise
+copies only inventoried files and internal symlinks, rechecks the copied bytes,
+and requires an inventoried iOS license. Unrelated files beside selected
+products are excluded. The repository watches the prepared tree so replacing a
+product causes verification again.
 
 The iOS repository exports `:sdk` as static Nuxie/NuxieRuntime Swift imports and
 the pinned runtime XCFramework. Its Swift `data` carries `Nuxie_Nuxie.bundle`.
