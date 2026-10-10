@@ -8,6 +8,7 @@ import os
 from pathlib import Path, PurePosixPath
 import platform
 import plistlib
+import re
 import shutil
 import subprocess
 import sys
@@ -115,10 +116,11 @@ def copy_maven(manifest, destination):
 
 
 def ios_flags(configuration, simulator=False):
+    cpu = ('sim_arm64' if platform.machine() == 'arm64' else 'x86_64') if simulator else 'arm64'
+    selected = '@apple_support//platforms:ios_' + cpu
     return ['--compilation_mode=' + ('opt' if configuration == 'Release' else 'dbg'),
-            '--platforms=@apple_support//platforms:' +
-            (('ios_sim_arm64' if platform.machine() == 'arm64' else 'ios_x86_64') if simulator else 'ios_arm64'),
-            '--ios_minimum_os=' + MINIMUM_IOS]
+            '--platforms=' + selected, '--apple_platforms=' + selected,
+            '--ios_multi_cpus=' + cpu, '--ios_minimum_os=' + MINIMUM_IOS]
 
 
 def simulator_flags():
@@ -129,8 +131,14 @@ def simulator_flags():
     matches = [(runtime, device) for runtime, group in devices.items() for device in group if device.get('udid') == identifier]
     if len(matches) != 1:
         raise ValueError('Selected simulator is unavailable')
-    runtime, device = matches[0]
-    return ['--ios_simulator_device=' + device['name'], '--ios_simulator_version=' + runtime.split('.iOS-', 1)[1].replace('-', '.')]
+    runtime, _device = matches[0]
+    if '.iOS-' not in runtime:
+        raise ValueError('Selected simulator must run iOS')
+    actual_version = tuple(int(part) for part in runtime.split('.iOS-', 1)[1].split('-'))
+    minimum_version = tuple(int(part) for part in MINIMUM_IOS.split('.'))
+    if actual_version < minimum_version:
+        raise ValueError('Selected simulator must run iOS ' + MINIMUM_IOS + '+')
+    return ['--test_arg=--destination=platform=ios_simulator,id=' + identifier]
 
 
 def ios_check(test=False):
@@ -139,6 +147,15 @@ def ios_check(test=False):
     if test:
         flags += simulator_flags()
     bazel('test' if test else 'build', ['//:ios_bridge_test' if test else '//:ios_bridge'], flags, environment(products=products))
+
+
+def verify_binary_platform(binary, sdk_platform, architecture):
+    """Inspect every Mach-O load command, including members of static archives."""
+    expected = {'macos': 1, 'ios-device': 2, 'ios-simulator': 7}[sdk_platform]
+    metadata = subprocess.check_output(['xcrun', 'otool', '-arch', architecture, '-l', str(binary)], text=True)
+    actual = [int(value) for value in re.findall(r'^\s*platform\s+(\d+)\s*$', metadata, re.MULTILINE)]
+    if not actual or any(value != expected for value in actual):
+        raise ValueError(f'Prepared {sdk_platform}/{architecture} binary has Mach-O platforms {actual}; expected {expected}')
 
 
 def ios_xcframework(configuration):
@@ -167,8 +184,10 @@ def ios_xcframework(configuration):
                 library = bundle / item['LibraryIdentifier'] / item['LibraryPath']
                 binary = library / library.stem if library.suffix == '.framework' else library
                 subprocess.run(['xcrun', 'lipo', str(binary), '-verify_arch', *item['SupportedArchitectures']], check=True)
+                native_platform = 'ios-simulator' if item.get('SupportedPlatformVariant') == 'simulator' else 'ios-device'
+                for architecture in item['SupportedArchitectures']:
+                    verify_binary_platform(binary, native_platform, architecture)
                 if library.suffix == '.framework':
-                    native_platform = 'ios-simulator' if item.get('SupportedPlatformVariant') == 'simulator' else 'ios-device'
                     matches = [product for product in receipt['products'] if product['platform'] == native_platform and product['configuration'] == configuration]
                     if len(matches) != 1 or len(matches[0]['resourceBundles']) != 1:
                         raise ValueError('Prepared native products must carry one matching resource bundle')

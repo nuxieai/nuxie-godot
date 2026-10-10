@@ -11,5 +11,5 @@ build --java_runtime_version=local_jdk
 build --tool_java_runtime_version=local_jdk
 build --experimental_strict_java_deps=off
 build:release --compilation_mode=opt
-build:ios-device --platforms=@apple_support//platforms:ios_arm64 --ios_minimum_os=15.0
-build:ios-simulator --platforms=@apple_support//platforms:ios_sim_arm64 --ios_minimum_os=15.0
+build:ios-device --platforms=@apple_support//platforms:ios_arm64 --ios_multi_cpus=arm64 --ios_minimum_os=15.0
+build:ios-simulator --platforms=@apple_support//platforms:ios_sim_arm64 --ios_multi_cpus=sim_arm64 --ios_minimum_os=15.0

@@ -18,6 +18,8 @@ config_setting(name = "release_configuration", values = {"compilation_mode": "op
 swift_library(
     name = "ios_bridge",
     module_name = "NuxieGodotBridge",
+    generates_header = True,
+    generated_header_name = "NuxieGodotBridge.h",
     srcs = glob(["ios-plugin/Sources/NuxieGodotBridge/*.swift"]),
     deps = ["@nuxie_native_ios//:sdk"],
     copts = ["-swift-version", "5", "-strict-concurrency=complete"],
@@ -117,6 +119,7 @@ cc_library(
     name = "ios_plugin",
     srcs = ["ios-plugin/Sources/NuxieGodotPlugin/nuxie_godot_plugin.cpp"],
     hdrs = [":godot_headers"],
+    additional_compiler_inputs = [":godot_headers"],
     copts = [
         "-std=gnu++17", "-O2", "-fno-exceptions", "-fblocks", "-fvisibility=hidden",
         "-I$(execpath :godot_headers)", "-I$(execpath :godot_headers)/platform/ios",
@@ -144,3 +147,5 @@ py_test(
     data = ["scripts/pack.py", "NATIVE-PINS.json"],
     deps = ["//scripts/bazel:sdk_tools"],
 )
+
+test_suite(name = "portable_tests", tests = [":source_tests"])

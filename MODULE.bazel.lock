@@ -279,6 +279,40 @@
   },
   "selectedYankedVersions": {},
   "moduleExtensions": {
+    "//scripts/bazel:native_artifacts.bzl%native_artifacts": {
+      "general": {
+        "bzlTransitiveDigest": "j0JYZ4LQMo77FLQD8Tut7fCizDfHQq9wawxSddafOsg=",
+        "usagesDigest": "5irzpBiEXF/ZafwokMfA3ZA4qncq5gkEn16zo0cfhAI=",
+        "recordedInputs": [
+          "REPO_MAPPING:,bridge_maven rules_jvm_external++maven+bridge_maven"
+        ],
+        "generatedRepoSpecs": {
+          "nuxie_native_ios": {
+            "repoRuleId": "@@//scripts/bazel:native_artifacts.bzl%_native_repository",
+            "attributes": {
+              "sdk": "ios",
+              "pins": "@@//:NATIVE-PINS.json",
+              "manifest": ""
+            }
+          },
+          "nuxie_native_android": {
+            "repoRuleId": "@@//scripts/bazel:native_artifacts.bzl%_native_repository",
+            "attributes": {
+              "sdk": "android",
+              "pins": "@@//:NATIVE-PINS.json",
+              "manifest": "",
+              "android_dependencies": {
+                "@@rules_jvm_external++maven+bridge_maven//:com_android_billingclient_billing": "com.android.billingclient:billing:9.1.0",
+                "@@rules_jvm_external++maven+bridge_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_android": "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0",
+                "@@rules_jvm_external++maven+bridge_maven//:org_jetbrains_kotlin_kotlin_stdlib": "org.jetbrains.kotlin:kotlin-stdlib:2.0.21",
+                "@@rules_jvm_external++maven+bridge_maven//:androidx_sqlite_sqlite_framework": "androidx.sqlite:sqlite-framework:2.6.2",
+                "@@rules_jvm_external++maven+bridge_maven//:org_jetbrains_kotlinx_kotlinx_serialization_json": "org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.2"
+              }
+            }
+          }
+        }
+      }
+    },
     "@@rules_kotlin+//src/main/starlark/core/repositories:bzlmod_setup.bzl%rules_kotlin_extensions": {
       "general": {
         "bzlTransitiveDigest": "1eDDuTFD39r/W+K8QY/4BN9y/SvxQjD9Z0bTSo8NWTM=",
