@@ -71,3 +71,10 @@ wrap a local command, for example:
 ```sh
 python3 scripts/bazel/ios_simulator.py -- python3 scripts/bazel/sdk.py test-ios
 ```
+
+For a check that builds both Apple configurations, set
+`NUXIE_IOS_DEBUG_ARTIFACTS=/absolute/debug/sdk-artifacts.json` and
+`NUXIE_IOS_RELEASE_ARTIFACTS=/absolute/release/sdk-artifacts.json`. These select
+separate genuine producer receipts without duplicating their product trees.
+Each configuration falls back to `NUXIE_IOS_ARTIFACTS` when its specific override
+is unset. See [the native artifact contract](NATIVE-ARTIFACTS.md) for validation.
