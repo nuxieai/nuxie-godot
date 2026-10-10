@@ -65,7 +65,7 @@ class XCFrameworkBuildTests(unittest.TestCase):
                         self.assertEqual(command[3], '-verify_arch')
                         self.assertEqual(set(json.loads(Path(command[2]).read_text())), set(command[4:]))
                     with patch.object(sdk, 'ROOT', root), patch.object(sdk, 'prepare', return_value={'ios': manifest}), \
-                         patch.object(sdk, 'bazel'), patch.object(sdk, 'artifact', side_effect=lambda label, *_args: archives[label]), \
+                         patch.object(sdk, 'bazel'), patch.object(sdk, 'verify_binary_platform'), patch.object(sdk, 'artifact', side_effect=lambda label, *_args: archives[label]), \
                          patch.object(sdk, 'outputs', return_value=[headers]), patch.object(sdk.subprocess, 'run', side_effect=verify_architecture):
                         product = sdk.ios_xcframework(configuration)
                     info = plistlib.loads((product / 'Info.plist').read_bytes())
@@ -81,7 +81,7 @@ class XCFrameworkBuildTests(unittest.TestCase):
             root = Path(directory)
             manifest, archives, headers = self.fixtures(root, 'Release', missing_architecture=True)
             with patch.object(sdk, 'ROOT', root), patch.object(sdk, 'prepare', return_value={'ios': manifest}), \
-                 patch.object(sdk, 'bazel'), patch.object(sdk, 'artifact', side_effect=lambda label, *_args: archives[label]), \
+                 patch.object(sdk, 'bazel'), patch.object(sdk, 'verify_binary_platform'), patch.object(sdk, 'artifact', side_effect=lambda label, *_args: archives[label]), \
                  self.assertRaisesRegex(ValueError, 'both simulator architectures'):
                 sdk.ios_xcframework('Release')
             self.assertFalse((root / 'ios-plugin/.build/xcframework').exists())

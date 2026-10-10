@@ -15,7 +15,8 @@ def _framework_module_impl(ctx):
     ctx.actions.write(modulemap, 'framework module ' + module.name + ' {\n  header "' + module.name + '.h"\n  requires objc\n}\n')
     arch = ctx.fragments.apple.single_arch_cpu
     interface = getattr(module.swift, "swiftinterface", None)
-    return [library[DefaultInfo], library[SwiftInfo], library[CcInfo], SwiftDynamicFrameworkInfo(
+    # Bundle the owning interface while retaining every transitive static link input.
+    return [library[DefaultInfo], SwiftInfo(modules = [module]), library[CcInfo], SwiftDynamicFrameworkInfo(
         module_name = module.name,
         generated_header = module.swift.generated_header,
         swiftdocs = {arch: module.swift.swiftdoc},
