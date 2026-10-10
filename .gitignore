@@ -28,3 +28,4 @@ __pycache__/
 /.bazel-cache.local.bazelrc
 /.bazel-cache.*.tmp
 /bazel-*
+/.bazel-*
