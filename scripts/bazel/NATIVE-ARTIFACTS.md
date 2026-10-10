@@ -57,3 +57,11 @@ Run the independent verifier tests without a native build:
 ```sh
 python3 -B -m unittest discover -s scripts/bazel -p 'test_native_artifacts.py'
 ```
+
+To reuse separately prepared Apple configurations, set both
+`NUXIE_IOS_DEBUG_ARTIFACTS` and `NUXIE_IOS_RELEASE_ARTIFACTS` to their original
+absolute producer manifest paths. Each requested configuration selects its
+specific override first, then falls back to `NUXIE_IOS_ARTIFACTS` if unset. The
+selected receipt must match the canonical native revision and contain the
+requested configuration; invalid overrides fail without silently rebuilding.
+Receipts and product trees remain separate and are verified in place.

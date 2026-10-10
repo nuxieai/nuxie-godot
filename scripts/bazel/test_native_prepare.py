@@ -13,7 +13,8 @@ from native_prepare import checkout, prepare
 
 class NativePreparationTests(unittest.TestCase):
     def setUp(self):
-        environment = patch.dict(os.environ, {'NUXIE_IOS_ARTIFACTS': '', 'NUXIE_ANDROID_ARTIFACTS': ''})
+        environment = patch.dict(os.environ, {'NUXIE_IOS_ARTIFACTS': '', 'NUXIE_IOS_DEBUG_ARTIFACTS': '',
+                                              'NUXIE_IOS_RELEASE_ARTIFACTS': '', 'NUXIE_ANDROID_ARTIFACTS': ''})
         environment.start()
         self.addCleanup(environment.stop)
         self.temporary = tempfile.TemporaryDirectory()
@@ -80,6 +81,56 @@ out.mkdir(parents=True, exist_ok=True)
             selected = prepare(self.root, ['android'])
         self.assertEqual(selected, {'android': manifest})
         self.assertFalse((self.root / '.native/android').exists())
+
+    def ios_fixture(self, name, configuration, revision=None):
+        products = self.root / name
+        products.mkdir()
+        manifest = products / 'sdk-artifacts.json'
+        artifact = b'independent native fixture'
+        (products / 'product.a').write_bytes(artifact)
+        manifest.write_text(json.dumps({
+            'schemaVersion': 1, 'sdk': 'ios', 'sourceRevision': revision or self.revision, 'sourceDirty': False,
+            'products': [{'platform': 'ios-simulator', 'configuration': configuration}],
+            'artifacts': [{'path': 'product.a', 'size': len(artifact), 'sha256': hashlib.sha256(artifact).hexdigest()}],
+        }))
+        (self.root / 'NATIVE-PINS.json').write_text(json.dumps({'ios': self.pin}))
+        return manifest
+
+    def test_each_ios_configuration_selects_its_original_producer_receipt(self):
+        debug = self.ios_fixture('debug', 'Debug')
+        release = self.ios_fixture('release', 'Release')
+        with patch.dict(os.environ, {'NUXIE_IOS_DEBUG_ARTIFACTS': str(debug.parent),
+                                    'NUXIE_IOS_RELEASE_ARTIFACTS': str(release),
+                                    'NUXIE_IOS_ARTIFACTS': str(self.root / 'unused-legacy-manifest')}):
+            self.assertEqual(prepare(self.root, ['ios'], configuration='Debug'), {'ios': debug})
+            self.assertEqual(prepare(self.root, ['ios'], configuration='Release'), {'ios': release})
+        self.assertFalse((self.root / '.native/ios').exists())
+        self.assertEqual(json.loads(debug.read_text())['products'][0]['configuration'], 'Debug')
+        self.assertEqual(json.loads(release.read_text())['products'][0]['configuration'], 'Release')
+
+    def test_legacy_ios_override_remains_the_fallback(self):
+        for configuration in ('Debug', 'Release'):
+            with self.subTest(configuration=configuration):
+                manifest = self.ios_fixture('legacy-' + configuration, configuration)
+                with patch.dict(os.environ, {'NUXIE_IOS_ARTIFACTS': str(manifest)}):
+                    self.assertEqual(prepare(self.root, ['ios'], configuration=configuration), {'ios': manifest})
+        self.assertFalse((self.root / '.native/ios').exists())
+
+    def test_wrong_ios_configuration_does_not_fall_back(self):
+        wrong = self.ios_fixture('wrong-configuration', 'Release')
+        fallback = self.ios_fixture('fallback', 'Debug')
+        with patch.dict(os.environ, {'NUXIE_IOS_DEBUG_ARTIFACTS': str(wrong), 'NUXIE_IOS_ARTIFACTS': str(fallback)}):
+            with self.assertRaisesRegex(ValueError, 'requested Debug configuration'):
+                prepare(self.root, ['ios'], configuration='Debug')
+        self.assertFalse((self.root / '.native/ios').exists())
+
+    def test_wrong_ios_revision_does_not_fall_back(self):
+        wrong = self.ios_fixture('wrong-revision', 'Debug', '0' * 40)
+        fallback = self.ios_fixture('fallback', 'Debug')
+        with patch.dict(os.environ, {'NUXIE_IOS_DEBUG_ARTIFACTS': str(wrong), 'NUXIE_IOS_ARTIFACTS': str(fallback)}):
+            with self.assertRaisesRegex(ValueError, 'NATIVE-PINS'):
+                prepare(self.root, ['ios'], configuration='Debug')
+        self.assertFalse((self.root / '.native/ios').exists())
 
     def test_wrong_supplied_revision_cannot_fall_back_to_rebuilding(self):
         manifest = self.root / 'sdk-artifacts.json'

@@ -28,8 +28,13 @@ def checkout(root, sdk, pin):
     return source, producer
 
 
-def supplied_artifacts(sdk, pin):
-    value = os.environ.get('NUXIE_' + sdk.upper() + '_ARTIFACTS')
+def supplied_artifacts(sdk, pin, configuration='Debug'):
+    value = None
+    if sdk == 'ios':
+        if configuration not in ('Debug', 'Release'):
+            raise ValueError('Select the Debug or Release iOS configuration')
+        value = os.environ.get('NUXIE_IOS_' + configuration.upper() + '_ARTIFACTS')
+    value = value or os.environ.get('NUXIE_' + sdk.upper() + '_ARTIFACTS')
     if not value:
         return None
     selected = Path(value).expanduser()
@@ -37,7 +42,9 @@ def supplied_artifacts(sdk, pin):
         raise ValueError('Native artifact overrides must use absolute paths')
     manifest = selected / 'sdk-artifacts.json' if selected.is_dir() else selected
     from native_artifacts import inventory
-    inventory(manifest, sdk, pin['revision'])
+    receipt, _, _, _ = inventory(manifest, sdk, pin['revision'])
+    if sdk == 'ios' and not any(product.get('configuration') == configuration for product in receipt.get('products', [])):
+        raise ValueError('Prepared iOS artifacts do not contain the requested ' + configuration + ' configuration')
     return manifest.resolve()
 
 
@@ -50,7 +57,7 @@ def prepare(root, sdks, configuration='Debug', android_output=None, ios_platform
     with (native / '.prepare.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         for sdk in sdks:
-            supplied = supplied_artifacts(sdk, pins[sdk])
+            supplied = supplied_artifacts(sdk, pins[sdk], configuration)
             if supplied:
                 products[sdk] = supplied
                 continue
