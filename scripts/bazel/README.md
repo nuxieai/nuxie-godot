@@ -4,7 +4,7 @@ The Bazel workspace imports `.bazel-cache.bazelrc`, matching `nuxie-runtime`
 and all Nuxie SDKs. Action products, dependency downloads, and fetched
 repository trees share `~/.cache/nuxie/bazel` across Git worktrees.
 
-Bazel derives a separate output base from each checkout's path. Its `bazel-*`
+Bazel derives a separate output base from each checkout's path. Its hidden `.bazel-*`
 links and build outputs remain specific to that checkout, while matching actions
 can be restored from the shared cache.
 
@@ -56,3 +56,8 @@ It requires Xcode, Java 21, Android SDK 36/build-tools 36.0.0 and the native SDK
 pinned NDK. Set `NUXIE_IOS_SIMULATOR_ID` to the test simulator. Compiler downloads
 and matching actions share root/runtime caches; `.native/`, staged addon files,
 Bazel output bases and engine import products remain checkout-local.
+
+Godot ignores the hidden Bazel convenience links, so Editor imports cannot scan
+or write import metadata into compiler outputs and toolchain repositories.
+Artifact staging resolves Bazel's execution root directly instead of relying on
+a particular convenience-link name.

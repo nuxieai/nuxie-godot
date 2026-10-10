@@ -2,6 +2,8 @@ import %workspace%/.bazel-cache.bazelrc
 build --incompatible_strict_action_env
 build --verbose_failures
 test --test_output=errors
+# Keep Bazel toolchain/output trees outside the Godot resource scanner.
+build --symlink_prefix=.bazel-
 
 build --java_language_version=17
 build --tool_java_language_version=21

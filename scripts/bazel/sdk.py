@@ -49,7 +49,9 @@ def bazel(command, labels, flags=(), env=None, capture=False):
 
 
 def outputs(label, flags, env):
-    return [ROOT / line for line in bazel('cquery', [label], [*flags, '--output=files', '--noshow_progress'], env, True).splitlines() if line]
+    files = bazel('cquery', [label], [*flags, '--output=files', '--noshow_progress'], env, True).splitlines()
+    execution_root = Path(bazel('info', ['execution_root'], env=env, capture=True).strip())
+    return [execution_root / line for line in files if line]
 
 
 def artifact(label, flags, env, suffix):
