@@ -60,6 +60,8 @@ class XCFrameworkBuildTests(unittest.TestCase):
                 with self.subTest(prefix=prefix, configuration=configuration), tempfile.TemporaryDirectory() as directory:
                     root = Path(directory)
                     manifest, archives, headers = self.fixtures(root, configuration, prefix)
+                    for native_platform in ('ios-device', 'ios-simulator'):
+                        (manifest.parent / native_platform / configuration / 'Nuxie_Nuxie.bundle/unrecorded.png').write_bytes(b'not in receipt')
                     def verify_architecture(command, **_kwargs):
                         self.assertEqual(command[:2], ['xcrun', 'lipo'])
                         self.assertEqual(command[3], '-verify_arch')
@@ -72,6 +74,7 @@ class XCFrameworkBuildTests(unittest.TestCase):
                     for item in info['AvailableLibraries']:
                         framework = product / item['LibraryIdentifier'] / item['LibraryPath']
                         self.assertEqual((framework / 'Nuxie_Nuxie.bundle/fixture.txt').read_text(), 'owned SDK resources')
+                        self.assertFalse((framework / 'Nuxie_Nuxie.bundle/unrecorded.png').exists())
                     plugin = product.parent / ('nuxie_godot_plugin.' + configuration.lower() + '.xcframework')
                     self.assertTrue(plugin.is_dir())
                     self.assertEqual((root / '.native/licenses/Godot.txt').read_text(), 'Godot license')
