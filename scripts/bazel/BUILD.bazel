@@ -35,4 +35,4 @@ py_library(
 )
 exports_files(["source_test_main.py"])
 
-exports_files(["rules-kotlin-2.0-adapter.patch"])
+exports_files(["rules-kotlin-2.0-adapter.patch", "rules-android-min-sdk-23.patch"])
