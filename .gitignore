@@ -25,3 +25,6 @@ addons/nuxie/ios/*.xcframework/
 addons/nuxie/android/maven/
 addons/nuxie/artifact-checksums.json
 __pycache__/
+/.bazel-cache.local.bazelrc
+/.bazel-cache.*.tmp
+/bazel-*
