@@ -8,6 +8,9 @@ export JAVA_HOME="${JAVA_HOME:-/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/
 export ANDROID_HOME="${ANDROID_HOME:-/opt/homebrew/share/android-commandlinetools}"
 export ANDROID_SDK_ROOT="$ANDROID_HOME"
 export PATH="$JAVA_HOME/bin:$PATH"
+"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+  "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865" \
+  "cmake;3.22.1"
 
 godot_version=$(python3 -c 'import json; print(json.load(open("NATIVE-PINS.json"))["godot"])')
 export GODOT_BIN="$PWD/.native/tools/Godot.app/Contents/MacOS/Godot"
