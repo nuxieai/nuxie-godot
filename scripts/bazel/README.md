@@ -19,9 +19,6 @@ Verify the cache override without compiling native sources:
 python3 -B -m unittest discover -s scripts/bazel -p 'test_cache.py'
 ```
 
-This workspace establishes the cache policy for the SDK's Bazel migration.
-Existing host-language build and qualification commands remain available.
-
 ## Direct bridge builds and package preparation
 
 ```sh
@@ -37,6 +34,8 @@ AAR is a compile-only engine API. `//:android_bridge_aar` preserves the owning
 consumer rules. Swift compiles in `//:ios_bridge`; the C++ iOS plugin compiles in
 `//:ios_plugin`. Bazel's Apple rules produce each device/simulator slice and
 both Debug/Release XCFramework products consumed by the existing addon package.
+Preparation verifies every binary and static archive member's Mach-O platform
+as well as its declared device/simulator architectures.
 Official SCons generators produce declared headers from the checksum-pinned
 Godot 4.7.2 source archive; they do not compile the plugin or engine.
 
@@ -53,7 +52,7 @@ Editor imports and executes GDScript behavior tests, Android lint remains an
 upstream analyzer, and direct Bazel bridge targets run JUnit and XCTest. CI uses
 `scripts/ci.sh`, the same compiler targets and the same package/export contract.
 It requires Xcode, Java 21, Android SDK 36/build-tools 36.0.0 and the native SDK's
-pinned NDK. Set `NUXIE_IOS_SIMULATOR_ID` to the test simulator. Compiler downloads
+pinned NDK. Compiler downloads
 and matching actions share root/runtime caches; `.native/`, staged addon files,
 Bazel output bases and engine import products remain checkout-local.
 
@@ -61,3 +60,14 @@ Godot ignores the hidden Bazel convenience links, so Editor imports cannot scan
 or write import metadata into compiler outputs and toolchain repositories.
 Artifact staging resolves Bazel's execution root directly instead of relying on
 a particular convenience-link name.
+
+CI runs its iOS tests through `scripts/bazel/ios_simulator.py`. The helper
+creates and boots a private iPhone on the newest available compatible iOS
+runtime, passes its exact UUID to the Bazel test runner, and deletes it after
+success, failure or cancellation. Set `NUXIE_IOS_SIMULATOR_ID` to use an existing
+caller-owned simulator; the helper preserves that device. The same helper can
+wrap a local command, for example:
+
+```sh
+python3 scripts/bazel/ios_simulator.py -- python3 scripts/bazel/sdk.py test-ios
+```
