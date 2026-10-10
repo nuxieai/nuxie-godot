@@ -1,6 +1,25 @@
 # Qualification record
 
-## Experience goal and eligibility pins
+## Bazel build migration
+
+The current iOS dependency is
+`615a31bd03483e79a8590f8408b035659581f8f7`, landed in
+[iOS PR #487](https://github.com/nuxieai/nuxie-ios/pull/487). Android remains
+`0cbe8086068eb1a0d7e1c53c4440de4c9e3bd5ae` until its Bazel migration lands.
+`NATIVE-PINS.json` is the source of truth for native dependency selection.
+
+The owning SDK uses direct Bazel targets in local development and CI. Repository
+and action caches are shared across worktrees; compiler outputs and staged
+products are private to each checkout. Frontend helper checks and actual Debug
+and Release Apple action-graph audits passed, including device ARM64 and
+simulator ARM64/x86_64 compiler targets. Native preparation and bridge checks
+against the final landed producer pins remain pending.
+`swift package --package-path ios-plugin --scratch-path .native/swift-resolution resolve`
+resolved the exact landed iOS revision and refreshed the checked-in SwiftPM lock
+without compiling. Historical qualification below applies only to the revisions
+it names.
+
+## Previous Experience goal and eligibility pin qualification
 
 iOS `8c41617716c5c5086aba44e0d64f048692c515ae` and Android
 `0cbe8086068eb1a0d7e1c53c4440de4c9e3bd5ae` implement the Experience policy
