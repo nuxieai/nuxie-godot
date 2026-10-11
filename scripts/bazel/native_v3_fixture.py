@@ -306,7 +306,7 @@ class NativeV3Fixture:
                         self.answer(status, body, headers)
                         if urlsplit(self.path).path == '/profile' and status == 200:
                             # Request receipt/preparation cannot fence authentication:
-                            # bind native event time to the complete200 response write.
+                            # bind native event time to the complete 200 response write.
                             completed = time.time()
                             fixture.active['profiles'][-1]['responseCompletedAt'] = completed
                             fixture.ledger['requests'][-1]['responseCompletedAt'] = completed
