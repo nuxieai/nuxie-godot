@@ -78,7 +78,9 @@ actual native completion reports with typed event output values. Signed retired
 v1/v2 schemas and a v3 descriptor signed under the retired domain must produce
 an explicit native authentication failure and no authoritative publication.
 These adapter checks do not qualify rendered form editing or licensed engines.
-The owning `test-ios` frontend starts an ephemeral loopback server and a debug
+The owning `test-ios` frontend first runs the original adapter test bundle
+without the signed-profile fixture, then runs `//:ios_v3_bridge_test` separately.
+Both targets execute all their tests afresh. The frontend starts an ephemeral loopback server and a debug
 unified-log stream for its selected simulator, forwards the endpoint into the
 XCTest process, and always runs the integration tests afresh. Compile actions
 still use the shared Bazel cache. The server handles the native SDK's compressed
