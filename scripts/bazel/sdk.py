@@ -230,8 +230,12 @@ def ios_xcframework(configuration):
 
 def android_build(configuration='Release', test=False):
     products = prepare(ROOT, ['android'])
-    flags = ['--platforms=//:android_arm64', '--extra_toolchains=@androidsdk//:sdk-toolchain',
+    # Local JUnit/Robolectric tests execute on the host JVM. Only Android
+    # publication targets select an Android target platform.
+    flags = ['--extra_toolchains=@androidsdk//:sdk-toolchain',
              '--compilation_mode=' + ('opt' if configuration == 'Release' else 'dbg')]
+    if not test:
+        flags.append('--platforms=//:android_arm64')
     env = environment(True, products)
     bazel('test' if test else 'build', ['//:android_bridge_test' if test else '//:android_bridge_aar'], flags, env)
     if not test:
