@@ -16,6 +16,9 @@ from ios_simulator import selection
 HELPER = Path(__file__).with_name('ios_simulator.py')
 OWNED = '00000000-0000-4000-8000-000000000001'
 EXTERNAL = '00000000-0000-4000-8000-000000000002'
+# Shared hosts can delay process startup before the fake child is observable.
+# Shutdown and interrupt completion still use their original five-second bounds.
+CHILD_START_TIMEOUT = 30
 RUNTIMES = {'runtimes': [
     {'identifier': 'runtime.iOS-26-5', 'version': '26.5', 'isAvailable': True,
      'supportedDeviceTypes': [{'identifier': 'iPhone17', 'name': 'iPhone 17', 'productFamily': 'iPhone'}]},
@@ -86,10 +89,11 @@ elif args[1] == 'bootstatus' and os.environ.get('LEASE_BOOT_FAIL'): sys.exit(9)
                    'import os,pathlib,time; pathlib.Path(os.environ["LEASE_TEST_ROOT"],"child-pid").write_text(str(os.getpid())); time.sleep(60)']
         process = subprocess.Popen(command, env=self.environment, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         try:
-            deadline = time.monotonic() + 5
+            deadline = time.monotonic() + CHILD_START_TIMEOUT
             while not (self.root / 'child-pid').exists() and process.poll() is None and time.monotonic() < deadline:
                 time.sleep(0.02)
-            self.assertTrue((self.root / 'child-pid').is_file())
+            self.assertTrue((self.root / 'child-pid').is_file(),
+                            f'Child did not start; helper exit={process.poll()}; calls={self.calls()}')
             process.send_signal(signal.SIGTERM)
             _stdout, stderr = process.communicate(timeout=5)
             self.assertEqual(process.returncode, 143, stderr)
