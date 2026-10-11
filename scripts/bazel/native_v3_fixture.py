@@ -139,8 +139,9 @@ class NativeV3Fixture:
                  and row.get('subsystem') == LOG_SUBSYSTEM
                  and row.get('category') == 'NativeV3Tests'
                  and row.get('eventMessage') == 'NATIVE_V3_LOG_READY ' + api_key]
-        delivered_at = min((row['deliveredAt'] for row in case['profiles']
-                            if row['body']['distinct_id'] == case['customerId']), default=None)
+        delivered_at = min((row['responseCompletedAt'] for row in case['profiles']
+                            if row['body']['distinct_id'] == case['customerId']
+                            and 'responseCompletedAt' in row), default=None)
         failures = [row for row in rows if delivered_at is not None
                     and terminal_authentication_failure(row, case['processId'], delivered_at)
                     and (case['finishedAt'] is None or log_timestamp(row) <= case['finishedAt'])]
@@ -242,7 +243,7 @@ class NativeV3Fixture:
                 raise ValueError('Native profile must encode distinct_id')
             response = self.profiles[case['vector']]
             headers = dict(self.manifest['authorityHeaders'], ETag='"' + sha256(response) + '"')
-            delivered = dict(request, deliveredAt=time.time(), responseSha256=sha256(response),
+            delivered = dict(request, responsePreparedAt=time.time(), responseSha256=sha256(response),
                              responseHeaders=headers)
             case['profiles'].append(delivered)
             request.update(responseSha256=sha256(response), responseHeaders=headers)
@@ -284,6 +285,7 @@ class NativeV3Fixture:
                     self.send_header(key, value)
                 self.end_headers()
                 self.wfile.write(data)
+                self.wfile.flush()
 
             def do_GET(self):
                 with fixture.lock:
@@ -302,6 +304,13 @@ class NativeV3Fixture:
                         status, body, headers = fixture.handle(urlsplit(self.path).path, raw,
                                                               self.headers.get('Content-Encoding'))
                         self.answer(status, body, headers)
+                        if urlsplit(self.path).path == '/profile' and status == 200:
+                            # Request receipt/preparation cannot fence authentication:
+                            # bind native event time to the complete200 response write.
+                            completed = time.time()
+                            fixture.active['profiles'][-1]['responseCompletedAt'] = completed
+                            fixture.ledger['requests'][-1]['responseCompletedAt'] = completed
+                            fixture.save()
                     except (ValueError, KeyError, OSError, EOFError) as error:
                         fixture.ledger['violations'].append(str(error))
                         fixture.save()
