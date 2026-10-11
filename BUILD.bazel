@@ -93,7 +93,7 @@ swift_library(
     name = "ios_test_library",
     testonly = True,
     module_name = "NuxieGodotBridgeTests",
-    srcs = glob(["ios-plugin/Tests/NuxieGodotBridgeTests/*.swift"]),
+    srcs = glob(["ios-plugin/Tests/NuxieGodotBridgeTests/*.swift"], exclude = ["ios-plugin/Tests/NuxieGodotBridgeTests/NativeV3Tests.swift"]),
     deps = [":ios_bridge", "@nuxie_native_ios//:sdk"],
     copts = ["-swift-version", "5"],
     target_compatible_with = ["@platforms//os:ios"],
@@ -101,6 +101,24 @@ swift_library(
 ios_unit_test(
     name = "ios_bridge_test",
     deps = [":ios_test_library"],
+    minimum_os_version = "15.0",
+    tags = ["manual"],
+)
+
+# Live signed-profile tests have an owned loopback endpoint. Keep the original
+# adapter suite and its configuration semantics in their original test bundle.
+swift_library(
+    name = "ios_v3_test_library",
+    testonly = True,
+    module_name = "NuxieGodotNativeV3Tests",
+    srcs = ["ios-plugin/Tests/NuxieGodotBridgeTests/NativeV3Tests.swift"],
+    deps = [":ios_bridge", "@nuxie_native_ios//:sdk"],
+    copts = ["-swift-version", "5"],
+    target_compatible_with = ["@platforms//os:ios"],
+)
+ios_unit_test(
+    name = "ios_v3_bridge_test",
+    deps = [":ios_v3_test_library"],
     resources = glob(["ios-plugin/Tests/NuxieGodotBridgeTests/native-v3/*.json"]),
     minimum_os_version = "15.0",
     tags = ["manual"],

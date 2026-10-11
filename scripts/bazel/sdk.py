@@ -158,10 +158,12 @@ def ios_check(test=False):
     flags = ios_flags('Debug', True)
     if test:
         flags += simulator_flags()
+        # Run the original adapter suite with its original endpoint semantics.
+        bazel('test', ['//:ios_bridge_test'], [*flags, '--nocache_test_results'], environment(products=products))
         fixture_directory = ROOT / 'ios-plugin/Tests/NuxieGodotBridgeTests/native-v3'
         with native_v3_fixture(ROOT, SDK, fixture_directory, os.environ['NUXIE_IOS_SIMULATOR_ID'], products['ios']) as fixture_flags:
             # Compile actions share cache; live network/authentication tests always run.
-            bazel('test', ['//:ios_bridge_test'], [*flags, *fixture_flags, '--nocache_test_results'], environment(products=products))
+            bazel('test', ['//:ios_v3_bridge_test'], [*flags, *fixture_flags, '--nocache_test_results'], environment(products=products))
     else:
         bazel('build', ['//:ios_bridge'], flags, environment(products=products))
 

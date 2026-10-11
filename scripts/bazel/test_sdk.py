@@ -129,5 +129,31 @@ class SimulatorRunnerTests(unittest.TestCase):
                 sdk.simulator_flags()
 
 
+class NativeV3FrontendTests(unittest.TestCase):
+    def test_original_suite_keeps_its_endpoint_and_live_v3_suite_runs_separately(self):
+        from contextlib import contextmanager
+        order, calls = [], []
+        @contextmanager
+        def fixture(*arguments):
+            order.append('fixture-start')
+            yield ['--test_env=NUXIE_NATIVE_V3_FIXTURE_ENDPOINT=http://127.0.0.1:4288']
+            order.append('fixture-close')
+        def capture(command, labels, flags, environment):
+            calls.append((command, labels, flags))
+            order.append(labels[0])
+        with patch.dict(os.environ, {'NUXIE_IOS_SIMULATOR_ID': 'owned-simulator'}), \
+             patch('sdk.prepare', return_value={'ios': Path('/genuine/ios/sdk-artifacts.json')}), \
+             patch('sdk.simulator_flags', return_value=['--test_arg=--destination=platform=ios_simulator,id=owned-simulator']), \
+             patch('sdk.native_v3_fixture', fixture), patch('sdk.bazel', capture):
+            sdk.ios_check(test=True)
+        self.assertEqual(order, ['//:ios_bridge_test', 'fixture-start', '//:ios_v3_bridge_test', 'fixture-close'])
+        self.assertEqual([call[0] for call in calls], ['test', 'test'])
+        for call in calls:
+            self.assertIn('--nocache_test_results', call[2])
+            self.assertIn('--test_arg=--destination=platform=ios_simulator,id=owned-simulator', call[2])
+        self.assertFalse(any(flag.startswith('--test_env=') for flag in calls[0][2]))
+        self.assertIn('--test_env=NUXIE_NATIVE_V3_FIXTURE_ENDPOINT=http://127.0.0.1:4288', calls[1][2])
+
+
 if __name__ == '__main__':
     unittest.main()
