@@ -4,8 +4,9 @@
 
 The current iOS dependency is
 `615a31bd03483e79a8590f8408b035659581f8f7`, landed in
-[iOS PR #487](https://github.com/nuxieai/nuxie-ios/pull/487). Android remains
-`0cbe8086068eb1a0d7e1c53c4440de4c9e3bd5ae` until its Bazel migration lands.
+[iOS PR #487](https://github.com/nuxieai/nuxie-ios/pull/487). The current Android
+dependency is `7ebe2d72570b169712fd913fd2c5b2de4bf2848d`, landed in
+[Android PR #189](https://github.com/nuxieai/nuxie-android/pull/189).
 `NATIVE-PINS.json` is the source of truth for native dependency selection.
 
 The owning SDK uses direct Bazel targets in local development and CI. Repository
