@@ -53,6 +53,7 @@ maven.install(
     artifacts = [
         "com.android.billingclient:billing:9.1.0",
         "androidx.sqlite:sqlite-framework:2.6.2",
+        "androidx.browser:browser:1.8.0",
         "org.jetbrains.kotlin:kotlin-stdlib:2.1.20",
         "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0",
         "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.9.0",
@@ -98,6 +99,7 @@ native.artifacts(
         "@bridge_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_android": "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0",
         "@bridge_maven//:org_jetbrains_kotlin_kotlin_stdlib": "org.jetbrains.kotlin:kotlin-stdlib:2.0.21",
         "@bridge_maven//:androidx_sqlite_sqlite_framework": "androidx.sqlite:sqlite-framework:2.6.2",
+        "@bridge_maven//:androidx_browser_browser": "androidx.browser:browser:1.8.0",
         "@bridge_maven//:org_jetbrains_kotlinx_kotlinx_serialization_json": "org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.2",
     },
 )
