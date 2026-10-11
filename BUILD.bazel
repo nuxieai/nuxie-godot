@@ -22,6 +22,7 @@ swift_library(
     generated_header_name = "NuxieGodotBridge.h",
     srcs = glob(["ios-plugin/Sources/NuxieGodotBridge/*.swift"]),
     deps = ["@nuxie_native_ios//:sdk"],
+    data = ["@nuxie_native_ios//:resources"],
     copts = ["-swift-version", "5", "-strict-concurrency=complete"],
     features = ["swift.enable_library_evolution", "swift.emit_swiftinterface"],
     defines = select({":release_configuration": [], "//conditions:default": ["DEBUG"]}),
