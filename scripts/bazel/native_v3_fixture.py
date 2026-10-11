@@ -7,6 +7,7 @@ import gzip
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import math
 from pathlib import Path
 import re
 import subprocess
@@ -62,6 +63,10 @@ def typed_equal(actual, expected):
         return (isinstance(actual, list) and len(actual) == len(expected)
                 and all(typed_equal(left, right) for left, right in zip(actual, expected)))
     return type(actual) is type(expected) and actual == expected
+
+
+def json_integer(value):
+    return type(value) is int or (type(value) is float and math.isfinite(value) and value == int(value))
 
 
 class NativeV3Fixture:
@@ -167,7 +172,7 @@ class NativeV3Fixture:
             events = [row for row in case['events'] if row['distinct_id'] == case['customerId']]
             controls = [row for row in events if row['event'] == 'wrapper_v3_flush_probe']
             indexes = [row.get('properties', {}).get('index') for row in controls]
-            require(len(indexes) == 45 and all(type(index) is int for index in indexes)
+            require(len(indexes) == 45 and all(json_integer(index) for index in indexes)
                     and set(indexes) == set(range(45)), 'All 45 distinct native transport controls are required')
             require(any(row['event'] == self.manifest['trigger']
                         and all(typed_equal(row.get('properties', {}).get(key), value)
@@ -347,7 +352,7 @@ def native_v3_fixture(root, sdk, fixture_directory, simulator_id, artifact_manif
             (output / 'verdict.json').write_text(json.dumps(fixture.verify(), indent=2) + '\n')
         finally:
             if server is not None:
-                if thread is not None:
+                if thread is not None and thread.is_alive():
                     server.shutdown()
                     thread.join(timeout=5)
                 server.server_close()
