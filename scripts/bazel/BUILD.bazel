@@ -26,7 +26,7 @@ py_binary(name = "generate_godot_headers", srcs = ["generate_godot_headers.py"])
 
 exports_files(["Bridge.plist"])
 
-exports_files(["locks/bridge_maven_install.json"])
+exports_files(["locks/bridge_maven_install.json", "locks/godot_maven_install.json"])
 
 py_library(
     name = "sdk_tools",

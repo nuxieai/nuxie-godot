@@ -50,7 +50,17 @@ genrule(
     cmd = "$(location //scripts/bazel:bridge_artifacts) manifest --input $(SRCS) --output $@ --package ai.nuxie.godot --placeholder godotPluginName=NuxieGodot --placeholder godotPluginPackageName=ai.nuxie.godot",
 )
 
-aar_import(name = "godot_aar", aar = "@godot_android//file")
+aar_import(
+    name = "godot_aar",
+    aar = "@godot_android//file",
+    # Complete the pinned engine AAR's published POM dependency graph before
+    # wrapping the engine API as compile-only for the customer bridge.
+    deps = [
+        "@bridge_maven//:org_jetbrains_kotlin_kotlin_stdlib",
+        "@godot_maven//:androidx_fragment_fragment",
+        "@godot_maven//:androidx_documentfile_documentfile",
+    ],
+)
 # Godot owns this engine ABI; the customer supplies it at runtime.
 java_library(name = "godot_api", exports = [":godot_aar"], neverlink = True)
 genrule(

@@ -66,6 +66,30 @@ maven.install(
 )
 use_repo(maven, "bridge_maven")
 
+# Complete the engine AAR's POM closure without changing the owning SDK's
+# dependency selections. The bridge wraps this engine API as compile-only.
+maven.install(
+    name = "godot_maven",
+    lock_file = "//scripts/bazel:locks/godot_maven_install.json",
+    fail_if_repin_required = True,
+    artifacts = [
+        # Original Gradle resolution selects 2.1.20 for this request.
+        "org.jetbrains.kotlin:kotlin-stdlib:2.1.20",
+        "androidx.fragment:fragment:1.8.6",
+        "androidx.documentfile:documentfile:1.1.0",
+    ],
+    repositories = ["https://dl.google.com/dl/android/maven2", "https://repo.maven.apache.org/maven2"],
+    aar_import_bzl_label = "@rules_android//android:rules.bzl",
+    use_starlark_android_rules = True,
+    version_conflict_policy = "pinned",
+)
+maven.override(
+    name = "godot_maven",
+    coordinates = "org.jetbrains.kotlin:kotlin-stdlib",
+    target = "@bridge_maven//:org_jetbrains_kotlin_kotlin_stdlib",
+)
+use_repo(maven, "godot_maven")
+
 native = use_extension("//scripts/bazel:native_artifacts.bzl", "native_artifacts")
 native.artifacts(
     pins = "//:NATIVE-PINS.json",
