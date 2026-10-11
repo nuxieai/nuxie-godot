@@ -9,9 +9,34 @@ from unittest.mock import patch
 import sdk
 import unittest
 import zipfile
-from sdk import extract_archive, publish_tree, verify_binary_platform, verify_binary_architectures
+from sdk import extract_archive, publish_tree, publish_file, verify_binary_platform, verify_binary_architectures
 
 class SDKPublicationTests(unittest.TestCase):
+    def test_readonly_compiler_files_can_be_published_repeatedly_without_cache_mutation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            debug, release = root / 'debug.txt', root / 'release.txt'
+            debug.write_text('Debug license bytes')
+            release.write_text('Release license bytes')
+            for source in (debug, release):
+                source.chmod(0o444)
+            output = root / 'checkout/licenses/Godot.txt'
+            publish_file(debug, output)
+            self.assertEqual(output.read_text(), 'Debug license bytes')
+            output.chmod(0o444)
+            publish_file(release, output)
+            self.assertEqual(output.read_text(), 'Release license bytes')
+            self.assertEqual(output.stat().st_mode & 0o777, 0o644)
+            for source, expected in ((debug, 'Debug license bytes'), (release, 'Release license bytes')):
+                self.assertEqual(source.read_text(), expected)
+                self.assertEqual(source.stat().st_mode & 0o777, 0o444)
+            alias = root / 'checkout/licenses/alias.txt'
+            alias.symlink_to(debug)
+            with self.assertRaisesRegex(ValueError, 'Preserving publication symlink'):
+                publish_file(release, alias)
+            self.assertTrue(alias.is_symlink())
+            self.assertEqual(debug.read_text(), 'Debug license bytes')
+
     def test_publication_copies_products_without_changing_compiler_cache(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

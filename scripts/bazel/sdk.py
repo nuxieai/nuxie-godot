@@ -83,6 +83,17 @@ def publish_tree(source, destination):
             raise
 
 
+def publish_file(source, destination):
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if destination.is_symlink():
+        raise ValueError('Preserving publication symlink: ' + str(destination))
+    with tempfile.TemporaryDirectory(prefix='.bazel-publish-', dir=destination.parent) as temporary:
+        stage = Path(temporary) / 'product'
+        shutil.copyfile(source, stage)
+        stage.chmod(0o644)
+        stage.replace(destination)
+
+
 def extract_archive(archive, stage):
     with zipfile.ZipFile(archive) as compressed:
         for item in compressed.infolist():
@@ -213,7 +224,7 @@ def ios_xcframework(configuration):
         if len(headers) != 1 or not headers[0].is_dir():
             raise ValueError('Expected the declared Godot header tree')
         for source, name in [('LICENSE.txt', 'Godot.txt'), ('COPYRIGHT.txt', 'Godot-COPYRIGHT.txt')]:
-            shutil.copy2(headers[0] / source, licenses / name)
+            publish_file(headers[0] / source, licenses / name)
     return destination / (MODULE + '.' + configuration.lower() + '.xcframework')
 
 
