@@ -18,6 +18,7 @@ import zipfile
 from android_sdk import sdk_view
 from native_artifacts import copy_verified_file, copy_verified_tree, inventory
 from native_prepare import prepare
+from native_v3_fixture import native_v3_fixture
 
 ROOT = Path(__file__).resolve().parents[2]
 LAUNCHER = ROOT / 'scripts/bazel/bazel.sh'
@@ -157,7 +158,12 @@ def ios_check(test=False):
     flags = ios_flags('Debug', True)
     if test:
         flags += simulator_flags()
-    bazel('test' if test else 'build', ['//:ios_bridge_test' if test else '//:ios_bridge'], flags, environment(products=products))
+        fixture_directory = ROOT / 'ios-plugin/Tests/NuxieGodotBridgeTests/native-v3'
+        with native_v3_fixture(ROOT, SDK, fixture_directory, os.environ['NUXIE_IOS_SIMULATOR_ID'], products['ios']) as fixture_flags:
+            # Compile actions share cache; live network/authentication tests always run.
+            bazel('test', ['//:ios_bridge_test'], [*flags, *fixture_flags, '--nocache_test_results'], environment(products=products))
+    else:
+        bazel('build', ['//:ios_bridge'], flags, environment(products=products))
 
 
 def verify_binary_architectures(binary, architectures):
