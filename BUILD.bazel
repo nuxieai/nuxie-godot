@@ -56,7 +56,9 @@ aar_import(
     # Complete the pinned engine AAR's published POM dependency graph before
     # wrapping the engine API as compile-only for the customer bridge.
     deps = [
+        "@bridge_maven//:org_jetbrains_annotations",
         "@bridge_maven//:org_jetbrains_kotlin_kotlin_stdlib",
+        "@godot_maven//:androidx_annotation_annotation_jvm",
         "@godot_maven//:androidx_fragment_fragment",
         "@godot_maven//:androidx_documentfile_documentfile",
     ],
