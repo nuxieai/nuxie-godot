@@ -1,15 +1,66 @@
 # Qualification record
 
-## Native v3 dependencies
+## Native v3 dependency qualification
 
-The current iOS dependency is
-`28587b9b8e0c1fbcb012ebdff9645626706adcb8`, landed in
-[iOS PR #488](https://github.com/nuxieai/nuxie-ios/pull/488). The current Android
-dependency is `2e4c39929b397c808da0b9eefe4741aa83f8a4d0`, landed in
-[Android PR #191](https://github.com/nuxieai/nuxie-android/pull/191).
-`NATIVE-PINS.json` selects these native v3 consumers. Native product receipts must
-carry these original clean producer revisions; receipts from earlier producers
-cannot be relabeled to match the pins.
+This migration selects iOS
+`28587b9b8e0c1fbcb012ebdff9645626706adcb8`
+([iOS PR #488](https://github.com/nuxieai/nuxie-ios/pull/488)) and Android
+`2e4c39929b397c808da0b9eefe4741aa83f8a4d0`
+([Android PR #191](https://github.com/nuxieai/nuxie-android/pull/191)) for
+[UNIV-4288](https://universe.basis.dev/issue/UNIV-4288).
+`NATIVE-PINS.json` selects these inputs. Native product receipts must retain
+their exact clean producer revisions; an earlier product cannot be relabeled.
+Bazel compile actions share the existing host caches across worktrees, while
+compiler outputs, staged products and fixture evidence remain checkout-owned.
+
+The native v3 test target executes the shipped Swift adapter against four
+reproducible, genuinely signed profiles over a private loopback HTTP server.
+It requires accepted v3 admission, ordered adapter and native Journey events,
+matching identities and completion outcome, and exact number/string/Boolean
+run outputs. Retired v1/v2 schemas and a v3 descriptor signed under the retired
+domain require a concrete native authentication failure after the identified
+profile response completes. Live event transport and successful shutdown are
+required for every case. Test results execute afresh even when compilation
+reuses cached actions. The fixture generator, original native wire golden and
+independent verifier are tracked alongside the harness.
+
+These tests cover screenless native adapter sessions and their public event
+boundary. They do not establish rendered form editing, native text-input UI,
+Android JNI Journey execution, or an engine player. The historical native v2
+results below do not qualify these v3 pins. Actual v3 gate counts, original
+native receipts and prepared artifact hashes will be recorded separately after
+the current native consumer checks complete.
+
+### Selecting the local simulator
+
+On this host, the identical compiled OSLog marker and capture command produced
+an exact PID/timestamp event on iOS 26.5 and no events on the tested iOS 27
+devices. This local runtime/device comparison is tracked in
+[UNIV-4333](https://universe.basis.dev/issue/UNIV-4333). It does not establish an
+Apple-wide defect. The normal helper still chooses the latest available runtime;
+on this host that default cannot satisfy the required log-readiness oracle.
+
+Select an owned, already booted iOS 26.5 simulator using the existing caller
+lease option before running the native gate:
+
+```sh
+NUXIE_IOS_SIMULATOR_ID=YOUR_BOOTED_DEVICE_UUID python3 scripts/check.py
+```
+
+The caller owns shutdown and preserves its device. The helper deletes only
+simulators it creates itself. Authentication, PID/time scoping, signed-profile
+verification and the event oracle remain unchanged. Qualification records must
+include the exact selected UUID, runtime, command and original result.
+
+## Previous native v2 Bazel build migration
+
+The native v2 Bazel migration used iOS
+`615a31bd03483e79a8590f8408b035659581f8f7`, landed in
+[iOS PR #487](https://github.com/nuxieai/nuxie-ios/pull/487). Its Android
+dependency was `7ebe2d72570b169712fd913fd2c5b2de4bf2848d`, landed in
+[Android PR #189](https://github.com/nuxieai/nuxie-android/pull/189).
+These pins and the results in this section belong to the previous native v2
+build migration. They do not qualify the native v3 inputs above.
 
 The owning SDK uses direct Bazel targets in local development and CI. Repository
 and action caches are shared across worktrees; compiler outputs and staged
