@@ -148,7 +148,7 @@ class FixtureTests(unittest.TestCase):
                     'registeredAt': now - 1, 'finishedAt': now + 1, 'teardownCompleted': True,
                     'failure': None, 'profileSha256': vector['sha256']}
             case['profiles'] = [{'body': {'distinct_id': identity}, 'responseSha256': vector['sha256'],
-                                 'deliveredAt': now - 0.5}
+                                 'responseCompletedAt': now - 0.5}
                                 for identity in ('anonymous', case['customerId'])]
             case['events'] = [{'distinct_id': case['customerId'], 'event': 'wrapper_v3_flush_probe',
                                'properties': {'index': index}, 'idempotency_key': str(index)} for index in range(45)]
@@ -245,6 +245,24 @@ class FixtureTests(unittest.TestCase):
         server.shutdown.assert_not_called()
         server.server_close.assert_called_once()
         process.terminate.assert_called_once()
+
+    def test_authentication_requires_completed_profile_response_not_request_or_prepared_body(self):
+        # Model an independently observed error between request receipt and the
+        # final response write; merely preparing correct bytes cannot admit it.
+        now = time.time()
+        row = {'timestamp': datetime.fromtimestamp(now, timezone.utc).isoformat(), 'processID': 4288,
+               'subsystem': 'io.nuxie.sdk', 'category': 'NuxieSDK',
+               'eventMessage': '[Nuxie] [DEBUG] [UserTransitionCoordinator.swift:127] Identity profile refresh failed: '
+                               '<redacted:error=JourneyReleaseAuthenticationError hmac-sha256:0123456789abcdef>'}
+        self.log.write_text(json.dumps(row) + '\n')
+        self.fixture.active['profiles'].append({'body': {'distinct_id': 'wrapper-v3-regression'},
+                                               'receivedAt': now - 1, 'responsePreparedAt': now - 0.5})
+        self.assertFalse(self.fixture.snapshot(self.key)['authenticationFailures'])
+        self.fixture.active['profiles'][-1]['responseCompletedAt'] = now + 0.1
+        self.assertFalse(self.fixture.snapshot(self.key)['authenticationFailures'])
+        row['timestamp'] = datetime.fromtimestamp(now + 0.2, timezone.utc).isoformat()
+        self.log.write_text(json.dumps(row) + '\n')
+        self.assertEqual(self.fixture.snapshot(self.key)['authenticationFailures'], [row])
 
 
 if __name__ == '__main__':
