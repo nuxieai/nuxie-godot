@@ -1,0 +1,87 @@
+{
+  "nativeIOSRevision": "28587b9b8e0c1fbcb012ebdff9645626706adcb8",
+  "nativeAndroidRevision": "2e4c39929b397c808da0b9eefe4741aa83f8a4d0",
+  "sourceRepository": "https://github.com/nuxieai/nuxie-ios.git",
+  "source": "fixtures/journeys/planes/release.json",
+  "sourceSha256": "daeba1cdbb32233f97435f144d9908686780f013c15b1e739ba752aaeda0c9b2",
+  "publicKeyBase64": "IVL40Zt5HSRFMkLhXy6rbLfP+ntqXtMAl5YOBpiB2xI=",
+  "trigger": "wrapper_v3_probe",
+  "triggerProperties": {
+    "probeNumber": 42,
+    "probeText": "native-v3-wrapper",
+    "probeBoolean": true
+  },
+  "authorityHeaders": {
+    "Nuxie-App-Id": "app_wrapper_v3",
+    "Nuxie-App-Environment": "test"
+  },
+  "expectedActivities": [
+    "journey_started",
+    "journey_completed"
+  ],
+  "expectedProperties": {
+    "experience_id": "experience_wrapper_v3",
+    "experience_version": "version_wrapper_v3",
+    "leg_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "leg_generation": 0,
+    "outcome": "continue"
+  },
+  "expectedOutputs": {
+    "event": {
+      "probeNumber": 42,
+      "probeText": "native-v3-wrapper",
+      "probeBoolean": true
+    },
+    "responses": {}
+  },
+  "cases": [
+    {
+      "name": "accepted",
+      "schema": "nuxie.journey-release.v3",
+      "signatureDomain": "nuxie.journey-release.v3\u0000",
+      "verdict": "accepted",
+      "reason": null,
+      "file": "accepted.json",
+      "sha256": "52fc6361719faa0d004726d2a274493950d00a03113ce53406ce4142414213d2",
+      "descriptorSha256": "31ea757854cfcb3c68c103a1a1cc142532e2ecfee5adec7fb7ec7033b48f7d73",
+      "validUnderDeclaredDomain": true,
+      "validUnderV3Domain": true
+    },
+    {
+      "name": "retired-v1",
+      "schema": "nuxie.journey-release.v1",
+      "signatureDomain": "nuxie.journey-release.v3\u0000",
+      "verdict": "rejected",
+      "reason": "journey_release.descriptor.invalid",
+      "file": "retired-v1.json",
+      "sha256": "a84d369e85e6cc43519d9ee309c9071a0dd6eeb910f611031aaa227af5753630",
+      "descriptorSha256": "f4ecd6a939beab282834530d6ef20bd82801d26106bf7d311daaaf1a04dccfd0",
+      "validUnderDeclaredDomain": true,
+      "validUnderV3Domain": true
+    },
+    {
+      "name": "retired-v2",
+      "schema": "nuxie.journey-release.v2",
+      "signatureDomain": "nuxie.journey-release.v3\u0000",
+      "verdict": "rejected",
+      "reason": "journey_release.descriptor.invalid",
+      "file": "retired-v2.json",
+      "sha256": "2d16f8481b5fcbb8bbcc7a9acd326dda847aa079ccb6716b407d074fd29ee743",
+      "descriptorSha256": "ca56538120187772573d76c95df03d8c68a844a439a7793b156012b3325c18fd",
+      "validUnderDeclaredDomain": true,
+      "validUnderV3Domain": true
+    },
+    {
+      "name": "wrong-domain",
+      "schema": "nuxie.journey-release.v3",
+      "signatureDomain": "nuxie.journey-release.v2\u0000",
+      "verdict": "rejected",
+      "reason": "journey_release.signature.bad_signature",
+      "file": "wrong-domain.json",
+      "sha256": "45cd397c331299c9f15be40f6921f53b974c9844be8296c8d25274129b662b68",
+      "descriptorSha256": "31ea757854cfcb3c68c103a1a1cc142532e2ecfee5adec7fb7ec7033b48f7d73",
+      "validUnderDeclaredDomain": true,
+      "validUnderV3Domain": false
+    }
+  ]
+}

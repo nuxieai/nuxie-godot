@@ -4,7 +4,17 @@ These four exact profiles derive from the pinned iOS SDK's
 `fixtures/journeys/planes/release.json` at
 `28587b9b8e0c1fbcb012ebdff9645626706adcb8`. They use the public development
 Ed25519 test key derived from the explicit `[0x42; 32]` seed. No production key
-or verification bypass participates.
+or verification bypass participates. Regenerate from the exact owning checkout:
+
+```sh
+node scripts/generate-native-v3-fixtures.mjs --ios-source /absolute/pinned-nuxie-ios
+node scripts/generate-native-v3-fixtures.mjs --ios-source /absolute/pinned-nuxie-ios --check
+```
+
+The generator verifies the native revision against `NATIVE-PINS.json`, reads the
+original committed planes fixture through Git, declares every descriptor change,
+and writes the signatures, hashes, domains and independent expected values to
+`manifest.json`. Its default source checkout is `.native/ios`.
 
 The signed screenless Journey receives `wrapper_v3_probe` through the shipped
 adapter and projects typed number, string and Boolean event values into its
