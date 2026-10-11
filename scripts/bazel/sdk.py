@@ -149,6 +149,13 @@ def ios_check(test=False):
     bazel('test' if test else 'build', ['//:ios_bridge_test' if test else '//:ios_bridge'], flags, environment(products=products))
 
 
+def verify_binary_architectures(binary, architectures):
+    actual = set(subprocess.check_output(['xcrun', 'lipo', '-archs', str(binary)], text=True).split())
+    expected = set(architectures)
+    if actual != expected:
+        raise ValueError(f'Prepared binary has architectures {sorted(actual)}; expected {sorted(expected)}')
+
+
 def verify_binary_platform(binary, sdk_platform, architecture):
     """Inspect every Mach-O load command, including members of static archives."""
     expected = {'macos': 1, 'ios-device': 2, 'ios-simulator': 7}[sdk_platform]
@@ -183,7 +190,7 @@ def ios_xcframework(configuration):
             for item in info['AvailableLibraries']:
                 library = bundle / item['LibraryIdentifier'] / item['LibraryPath']
                 binary = library / library.stem if library.suffix == '.framework' else library
-                subprocess.run(['xcrun', 'lipo', str(binary), '-verify_arch', *item['SupportedArchitectures']], check=True)
+                verify_binary_architectures(binary, item['SupportedArchitectures'])
                 native_platform = 'ios-simulator' if item.get('SupportedPlatformVariant') == 'simulator' else 'ios-device'
                 for architecture in item['SupportedArchitectures']:
                     verify_binary_platform(binary, native_platform, architecture)

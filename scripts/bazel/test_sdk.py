@@ -9,7 +9,7 @@ from unittest.mock import patch
 import sdk
 import unittest
 import zipfile
-from sdk import extract_archive, publish_tree, verify_binary_platform
+from sdk import extract_archive, publish_tree, verify_binary_platform, verify_binary_architectures
 
 class SDKPublicationTests(unittest.TestCase):
     def test_publication_copies_products_without_changing_compiler_cache(self):
@@ -46,6 +46,27 @@ class SDKPublicationTests(unittest.TestCase):
 
 @unittest.skipUnless(sys.platform == 'darwin', 'Apple Mach-O oracle requires Xcode')
 class MachOPlatformTests(unittest.TestCase):
+    def test_actual_universal_binary_must_match_the_declared_architectures(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / 'fixture.c'
+            source.write_text('int architecture_fixture(void) { return 42; }\n')
+            objects = []
+            for architecture in ('arm64', 'x86_64'):
+                binary = root / (architecture + '.o')
+                subprocess.run(['xcrun', 'clang', '-target', architecture + '-apple-ios15.0-simulator',
+                                '-c', str(source), '-o', str(binary)], check=True, capture_output=True)
+                objects.append(binary)
+            universal = root / 'universal.o'
+            subprocess.run(['xcrun', 'lipo', '-create', *map(str, objects), '-output', str(universal)],
+                           check=True, capture_output=True)
+            verify_binary_architectures(universal, ['arm64', 'x86_64'])
+            verify_binary_architectures(objects[0], ['arm64'])
+            with self.assertRaisesRegex(ValueError, 'has architectures'):
+                verify_binary_architectures(universal, ['arm64'])
+            with self.assertRaisesRegex(ValueError, 'has architectures'):
+                verify_binary_architectures(objects[0], ['arm64', 'x86_64'])
+
     def test_device_simulator_and_host_objects_and_archives_have_distinct_platforms(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
