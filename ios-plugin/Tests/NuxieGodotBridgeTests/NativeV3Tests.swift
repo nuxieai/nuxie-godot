@@ -56,10 +56,11 @@ final class NativeV3Tests: XCTestCase {
     let nativeLogs = try OSLogStore(scope: .currentProcessIdentifier)
     let logPosition = nativeLogs.position(date: Date())
     defer {
-      let entries = try? nativeLogs.getEntries(at: logPosition)
-      for entry in entries ?? [] {
-        if let entry = entry as? OSLogEntryLog, entry.subsystem == "io.nuxie.sdk" {
-          print("NATIVE_V3_NATIVE_LOG vector=\(vector) message=\(entry.composedMessage)")
+      if let entries = try? nativeLogs.getEntries(at: logPosition) {
+        for entry in entries {
+          if let entry = entry as? OSLogEntryLog, entry.subsystem == "io.nuxie.sdk" {
+            print("NATIVE_V3_NATIVE_LOG vector=\(vector) message=\(entry.composedMessage)")
+          }
         }
       }
       print("NATIVE_V3_TRANSPORT vector=\(vector) offeredHosts=\(NativeV3Transport.offeredHosts)")
