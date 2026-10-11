@@ -80,9 +80,10 @@ class FixtureTests(unittest.TestCase):
         self.rejects(lambda: self.post('/profile', {'apiKey': self.key, 'distinctId': 'wrapper-v3-regression'}))
         self.rejects(lambda: self.post('/batch', {'apiKey': self.key, 'batch': [{'event': 'probe', 'distinctId': 'x', 'idempotencyKey': 'x'}]}))
         self.rejects(lambda: urlopen(Request(self.endpoint + '/batch', b'broken gzip', {'Content-Encoding': 'gzip'}), timeout=3))
+        self.rejects(lambda: urlopen(Request(self.endpoint + '/batch', b'\x1f\x8b', {'Content-Encoding': 'gzip'}), timeout=3))
         self.assertFalse(self.fixture.active['profiles'])
         self.assertFalse(self.fixture.active['events'])
-        self.assertEqual(len(self.fixture.ledger['violations']), 3)
+        self.assertEqual(len(self.fixture.ledger['violations']), 4)
 
     def test_other_api_key_and_overlapping_vector_are_rejected(self):
         self.rejects(lambda: self.post('/profile', {'apiKey': 'pk_test_wrong_case', 'distinct_id': 'x'}))
@@ -185,11 +186,16 @@ class FixtureTests(unittest.TestCase):
     def test_verifier_rejects_boolean_control_missing_index_reordered_journey_and_typed_output_mutations(self):
         cases = self.reference_ledger()
         self.assertEqual(len(self.fixture.verify()), 4)
+        cases[0]['events'][42]['properties']['index'] = 42.0
+        self.assertEqual(len(self.fixture.verify()), 4)
         accepted = copy.deepcopy(cases[0])
         mutations = []
         boolean_index = copy.deepcopy(accepted)
         boolean_index['events'][1]['properties']['index'] = True
         mutations.append(boolean_index)
+        fractional_index = copy.deepcopy(accepted)
+        fractional_index['events'][42]['properties']['index'] = 42.5
+        mutations.append(fractional_index)
         missing_index = copy.deepcopy(accepted)
         missing_index['events'].pop(1)
         mutations.append(missing_index)
@@ -221,6 +227,24 @@ class FixtureTests(unittest.TestCase):
                     self.fail('A failed startup must not yield')
         process.terminate.assert_called_once()
         process.wait.assert_called_once_with(timeout=5)
+
+    def test_thread_start_failure_closes_server_without_waiting_for_a_nonexistent_serving_thread(self):
+        process, server, thread = mock.Mock(), mock.Mock(), mock.Mock()
+        process.returncode = -15
+        thread.start.side_effect = RuntimeError('thread startup failed')
+        thread.is_alive.return_value = False
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch('native_v3_fixture.subprocess.Popen', return_value=process), \
+             mock.patch('native_v3_fixture.threading.Thread', return_value=thread), \
+             mock.patch.object(NativeV3Fixture, 'server', return_value=server):
+            root = Path(directory)
+            (root / 'NATIVE-PINS.json').write_bytes((ROOT / 'NATIVE-PINS.json').read_bytes())
+            with self.assertRaisesRegex(RuntimeError, 'thread startup failed'):
+                with native_v3_fixture(root, 'unity', FIXTURES, 'owned-simulator'):
+                    self.fail('Failed thread startup must not yield')
+        server.shutdown.assert_not_called()
+        server.server_close.assert_called_once()
+        process.terminate.assert_called_once()
 
 
 if __name__ == '__main__':
