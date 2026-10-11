@@ -102,8 +102,6 @@ ios_unit_test(
     name = "ios_bridge_test",
     deps = [":ios_test_library"],
     resources = glob(["ios-plugin/Tests/NuxieGodotBridgeTests/native-v3/*.json"]),
-    # ProcessInfo reads the endpoint at process startup; late setenv is cached.
-    env = {"NUXIE_GODOT_API_ENDPOINT": "https://wrapper-v3-api.nuxie.test"},
     minimum_os_version = "15.0",
     tags = ["manual"],
 )

@@ -78,6 +78,22 @@ actual native completion reports with typed event output values. Signed retired
 v1/v2 schemas and a v3 descriptor signed under the retired domain must produce
 an explicit native authentication failure and no authoritative publication.
 These adapter checks do not qualify rendered form editing or licensed engines.
+The owning `test-ios` frontend starts an ephemeral loopback server and a debug
+unified-log stream for its selected simulator, forwards the endpoint into the
+XCTest process, and always runs the integration tests afresh. Compile actions
+still use the shared Bazel cache. The server handles the native SDK's compressed
+batches, authority headers, and quoted profile ETag without replacing its parser,
+verifier, persistence or Journey executor.
+
+Each vector uses a fresh API key/customer and finishes native shutdown before
+another vector begins. Rejection requires the real native authentication error
+site/category, actual XCTest PID, and unified-log event time after that customer's
+exact profile was delivered. Privacy redaction retains the authentication class;
+these checks do not distinguish its detailed error code. The server independently
+checks ordered Journey activities/native ingest and exact typed run outputs
+against the signed fixture manifest. It retains raw logs, request/body hashes,
+original signed profiles, producer receipt and consumer source identity under
+`.native/test-evidence/ios-v3/<unique-run>/`, even when a check fails.
 
 For a check that builds both Apple configurations, set
 `NUXIE_IOS_DEBUG_ARTIFACTS=/absolute/debug/sdk-artifacts.json` and
