@@ -57,7 +57,7 @@ final class NativeV3Tests: XCTestCase {
       if let data = value.data(using: .utf8), let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
         emitted.append(object)
       }
-      
+
     }
     let session = UUID().uuidString
     do {
@@ -69,7 +69,8 @@ final class NativeV3Tests: XCTestCase {
       XCTAssertNotNil(configured)
       try await wait("Native startup must fetch the signed profile") { NativeV3Transport.profileRequests > 0 }
       let requests = NativeV3Transport.profileRequests
-      _ = try await invoke(bridge, "identify", ["session": session, "customerId": "wrapper-v3-\(UUID().uuidString)", "properties": "{}"])
+      let customer = "wrapper-v3-\(UUID().uuidString)"
+      _ = try await invoke(bridge, "identify", ["session": session, "customerId": customer, "properties": "{}"])
       try await wait("Fresh customer must receive its profile") { NativeV3Transport.profileRequests > requests }
       if accepted { try await wait("Signed v3 profile must publish authoritative readiness") { NuxieSDK.shared.features.state == .ready } }
       else {
@@ -100,12 +101,19 @@ final class NativeV3Tests: XCTestCase {
       for index in 0..<45 {
         _ = try await invoke(bridge, "trigger", ["session": session, "event": "wrapper_v3_flush_probe", "properties": try json(["index": index])])
       }
-      try await wait("Actual native event transport must be functioning") {
-        NativeV3Transport.events.contains { $0["event"] as? String == "wrapper_v3_flush_probe" }
+      // Complete the last partial batch through the public API. These distinct
+      // sentinels are not part of the 45-index oracle below.
+      for index in 0..<20 {
+        _ = try await invoke(bridge, "trigger", ["session": session, "event": "wrapper_v3_flush_sentinel", "properties": try json(["index": index])])
       }
-      try await Task.sleep(nanoseconds: 2_000_000_000)
+      func customerEvents() -> [[String: Any]] { NativeV3Transport.events.filter { $0["distinctId"] as? String == customer } }
+      try await wait("All 45 distinct probes must complete native event transport") {
+        let indexes = customerEvents().filter { $0["event"] as? String == "wrapper_v3_flush_probe" }
+          .compactMap { ($0["properties"] as? [String: Any])?["index"] as? Int }
+        return Set(indexes) == Set(0..<45)
+      }
       let journeys = activities()
-      let nativeJourneys = NativeV3Transport.events.filter {
+      let nativeJourneys = customerEvents().filter {
         ["$journey_leg_started", "$journey_leg_completed"].contains($0["event"] as? String ?? "")
       }
       if accepted {
@@ -120,7 +128,17 @@ final class NativeV3Tests: XCTestCase {
         }
         XCTAssertEqual(properties.first?["journey_id"] as? String, properties.last?["journey_id"] as? String)
         XCTAssertEqual(properties.last?["outcome"] as? String, "continue")
-        let completion = try XCTUnwrap(nativeJourneys.first { $0["event"] as? String == "$journey_leg_completed" })
+        XCTAssertEqual(nativeJourneys.compactMap { $0["event"] as? String }, ["$journey_leg_started", "$journey_leg_completed"])
+        for item in nativeJourneys {
+          let context = try XCTUnwrap(item["properties"] as? [String: Any])
+          XCTAssertEqual(context["journey_id"] as? String, properties.last?["journey_id"] as? String)
+          XCTAssertEqual(context["experience_id"] as? String, "experience_wrapper_v3")
+          XCTAssertEqual(context["experience_version_id"] as? String, "version_wrapper_v3")
+          XCTAssertEqual(context["leg_id"] as? String, String(repeating: "a", count: 64))
+          XCTAssertEqual(context["leg_generation"] as? Int, 0)
+        }
+        XCTAssertEqual(Set(nativeJourneys.compactMap { $0["idempotencyKey"] as? String }).count, 2)
+        let completion = try XCTUnwrap(nativeJourneys.last)
         let nativeProperties = try XCTUnwrap(completion["properties"] as? [String: Any])
         let outputs = try XCTUnwrap(nativeProperties["outputs"] as? [String: Any])
         XCTAssertEqual(try json(outputs), try json(["event": values, "responses": [:]] as [String: Any]))
