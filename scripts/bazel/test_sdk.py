@@ -18,8 +18,9 @@ class SDKPublicationTests(unittest.TestCase):
             debug, release = root / 'debug.txt', root / 'release.txt'
             debug.write_text('Debug license bytes')
             release.write_text('Release license bytes')
-            for source in (debug, release):
-                source.chmod(0o444)
+            modes = {debug: 0o444, release: 0o555}
+            for source, mode in modes.items():
+                source.chmod(mode)
             output = root / 'checkout/licenses/Godot.txt'
             publish_file(debug, output)
             self.assertEqual(output.read_text(), 'Debug license bytes')
@@ -29,7 +30,7 @@ class SDKPublicationTests(unittest.TestCase):
             self.assertEqual(output.stat().st_mode & 0o777, 0o644)
             for source, expected in ((debug, 'Debug license bytes'), (release, 'Release license bytes')):
                 self.assertEqual(source.read_text(), expected)
-                self.assertEqual(source.stat().st_mode & 0o777, 0o444)
+                self.assertEqual(source.stat().st_mode & 0o777, modes[source])
             alias = root / 'checkout/licenses/alias.txt'
             alias.symlink_to(debug)
             with self.assertRaisesRegex(ValueError, 'Preserving publication symlink'):
