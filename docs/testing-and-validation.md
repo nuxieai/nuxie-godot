@@ -11,10 +11,33 @@ dependency is `7ebe2d72570b169712fd913fd2c5b2de4bf2848d`, landed in
 
 The owning SDK uses direct Bazel targets in local development and CI. Repository
 and action caches are shared across worktrees; compiler outputs and staged
-products are private to each checkout. Frontend helper checks and actual Debug
-and Release Apple action-graph audits passed, including device ARM64 and
-simulator ARM64/x86_64 compiler targets. Native preparation and bridge checks
-against the final landed producer pins remain pending.
+products are private to each checkout.
+
+At build-source revision `fad60a728c2527ec9a427e08e457bd0ac40ea15a`,
+`python3 scripts/check.py` passed with the original native producer receipts and
+a temporary owned iOS simulator. It covered six Python tests, all 69 GDScript
+client checks, the original Android bridge tests, independent Gradle lint,
+Debug/Release native preparation, and all six original Swift tests. The three
+Android cases executed successfully in the preceding
+`python3 scripts/bazel/sdk.py test-android` retry; the owning check reused that
+passed result. All 44 frontend helper tests also passed. Authored native sources
+and behavioral assertions are unchanged.
+
+`python3 scripts/pack.py` produced `nuxie-godot-0.4.0.zip`, SHA-256
+`705a3366b9093675f24b4abd4b24653242f678583f64785a81dfaf2c8b0b3340`.
+Independent inspection verified all 176 checksummed addon files, both bridge
+AARs at API 23, all 25 files in the selected native Maven coordinate, all four
+XCFrameworks, licenses, exact native pins, and the standalone Lab's identical
+file hashes. The pinned Godot editor imported the freshly packed Lab headlessly.
+
+Actual Debug/Release Swift and C++ action graphs contain exactly the iOS 15
+ARM64 device and ARM64/x86_64 simulator target triples. Mach-O inspection confirms
+the corresponding device/simulator platforms and architectures. Each bridge
+slice retains the six inventoried SDK resource files and generated interface;
+licenses match the original receipts. The strict dependency checker passes,
+and the test runtime excludes the compile-only Godot engine classes. These are
+build and package checks; historical player/store measurements below retain
+their original revisions and scope.
 `swift package --package-path ios-plugin --scratch-path .native/swift-resolution resolve`
 resolved the exact landed iOS revision and refreshed the checked-in SwiftPM lock
 without compiling. Historical qualification below applies only to the revisions
