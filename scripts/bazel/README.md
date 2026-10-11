@@ -72,6 +72,13 @@ wrap a local command, for example:
 python3 scripts/bazel/ios_simulator.py -- python3 scripts/bazel/sdk.py test-ios
 ```
 
+The iOS bridge test executes the native v3 profile verifier and screenless
+Journey through the shipped adapter. It checks forwarded Journey activity and
+actual native completion reports with typed event output values. Signed retired
+v1/v2 schemas and a v3 descriptor signed under the retired domain must produce
+an explicit native authentication failure and no authoritative publication.
+These adapter checks do not qualify rendered form editing or licensed engines.
+
 For a check that builds both Apple configurations, set
 `NUXIE_IOS_DEBUG_ARTIFACTS=/absolute/debug/sdk-artifacts.json` and
 `NUXIE_IOS_RELEASE_ARTIFACTS=/absolute/release/sdk-artifacts.json`. These select

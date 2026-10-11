@@ -33,7 +33,8 @@ let package = Package(
     ),
     .testTarget(
       name: "NuxieGodotBridgeTests",
-      dependencies: ["NuxieGodotBridge"]
+      dependencies: ["NuxieGodotBridge"],
+      resources: [.copy("native-v3")]
     )
   ],
   swiftLanguageModes: [.v5]

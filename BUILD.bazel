@@ -101,6 +101,7 @@ swift_library(
 ios_unit_test(
     name = "ios_bridge_test",
     deps = [":ios_test_library"],
+    resources = glob(["ios-plugin/Tests/NuxieGodotBridgeTests/native-v3/*.json"]),
     minimum_os_version = "15.0",
     tags = ["manual"],
 )

@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "nuxie.journey-plane-profile.v2",
+  "status": "ok",
+  "delivery": {
+    "renderBaseUrl": "https://wrapper-v3.nuxie.test/",
+    "assetBaseUrl": "https://wrapper-v3.nuxie.test/"
+  },
+  "features": [],
+  "facts": {
+    "properties": {},
+    "memberships": {},
+    "assignments": {}
+  },
+  "releases": [
+    {
+      "locator": {
+        "appId": "app_wrapper_v3",
+        "buildId": "build_wrapper_v3",
+        "environment": "test",
+        "experienceId": "experience_wrapper_v3",
+        "experienceVersionId": "version_wrapper_v3",
+        "publishedAt": "2026-10-11T12:00:00.000Z",
+        "publishedAtSeq": 4288,
+        "versionNumber": 3,
+        "legId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "envelope": {
+        "mediaType": "application/vnd.nuxie.journey+json",
+        "encoding": "base64",
+        "descriptorSha256": "31ea757854cfcb3c68c103a1a1cc142532e2ecfee5adec7fb7ec7033b48f7d73",
+        "descriptorSizeBytes": 1792,
+        "descriptorBytesBase64": "eyJpZGVudGl0eSI6eyJhcHBJZCI6ImFwcF93cmFwcGVyX3YzIiwiYnVpbGRJZCI6ImJ1aWxkX3dyYXBwZXJfdjMiLCJlbnZpcm9ubWVudCI6InRlc3QiLCJleHBlcmllbmNlSWQiOiJleHBlcmllbmNlX3dyYXBwZXJfdjMiLCJleHBlcmllbmNlVmVyc2lvbklkIjoidmVyc2lvbl93cmFwcGVyX3YzIiwicHVibGlzaGVkQXQiOiIyMDI2LTEwLTExVDEyOjAwOjAwLjAwMFoiLCJwdWJsaXNoZWRBdFNlcSI6NDI4OCwidmVyc2lvbk51bWJlciI6M30sImxlZyI6eyJjb21wbGV0aW9uT3V0cHV0cyI6eyJjb250aW51ZSI6eyJldmVudEZpZWxkcyI6W3sia2V5IjoicHJvYmVOdW1iZXIiLCJyZXF1aXJlZCI6dHJ1ZSwidHlwZSI6Im51bWJlciJ9LHsia2V5IjoicHJvYmVUZXh0IiwicmVxdWlyZWQiOnRydWUsInR5cGUiOiJzdHJpbmcifSx7ImtleSI6InByb2JlQm9vbGVhbiIsInJlcXVpcmVkIjp0cnVlLCJ0eXBlIjoiYm9vbGVhbiJ9XSwicmVzcG9uc2VGaWVsZHMiOltdfX0sImVudHJ5Q29uZGl0aW9uIjp7ImV2ZW50TmFtZSI6IndyYXBwZXJfdjNfcHJvYmUiLCJ0eXBlIjoiZXZlbnQifSwiZW50cnlTdGVwSWQiOiJyZXBvcnQiLCJmYWN0cyI6eyJleHBlcmltZW50SWRzIjpbXSwicHJvcGVydHlLZXlzIjpbXSwic2VnbWVudElkcyI6W119LCJpZCI6ImFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEiLCJpbnB1dHMiOnsiZXZlbnRGaWVsZHMiOlt7ImtleSI6InByb2JlTnVtYmVyIiwicmVxdWlyZWQiOnRydWUsInR5cGUiOiJudW1iZXIifSx7ImtleSI6InByb2JlVGV4dCIsInJlcXVpcmVkIjp0cnVlLCJ0eXBlIjoic3RyaW5nIn0seyJrZXkiOiJwcm9iZUJvb2xlYW4iLCJyZXF1aXJlZCI6dHJ1ZSwidHlwZSI6ImJvb2xlYW4ifV0sInJlc3BvbnNlRmllbGRzIjpbXX0sIm9mZmVycyI6W10sIm91dHB1dHMiOltdLCJwb2xpY3kiOnsiZW50cnkiOnsiZnJlcXVlbmN5Ijp7InR5cGUiOiJvbmVfdGltZSJ9LCJ0cmlnZ2VyIjp7ImV2ZW50TmFtZSI6IndyYXBwZXJfdjNfcHJvYmUiLCJ0eXBlIjoiZXZlbnQifX0sImV4aXRXaGVuQW55IjpbXX0sInJvdXRlcyI6W10sInNjaGVtYVZlcnNpb24iOiJudXhpZS5leHBlcmllbmNlLXBsYW5lcy52MSIsInNjcmVlbnMiOltdLCJzdGVwcyI6W3siaWQiOiJyZXBvcnQiLCJraW5kIjoiY29tcGxldGUiLCJvdXRjb21lIjoiY29udGludWUifV19LCJtZXRhZGF0YSI6eyJhcHBEZWZhdWx0VGltZXpvbmUiOiJFdGMvVVRDIiwiZGVzY3JpcHRpb24iOiJTY3JlZW5sZXNzIG5hdGl2ZSBKb3VybmV5IGZpeHR1cmUgZm9yIGFjdHVhbCBkb3duc3RyZWFtIGFkYXB0ZXIgY29uc3VtZXJzIiwiZXhwZXJpZW5jZVR5cGUiOiJvbmJvYXJkaW5nIiwibmFtZSI6IkRvd25zdHJlYW0gbmF0aXZlIHYzIGFkbWlzc2lvbiBhbmQgdHlwZWQgZXZlbnQgdmFsdWVzIn0sInBsYWNlbWVudHMiOltdLCJwcmVzZW50YXRpb24iOnsiYmFja2dyb3VuZENvbG9yIjoiIzBBMEEwQUZGIiwib3JpZW50YXRpb24iOiJwb3J0cmFpdCIsInN0eWxlIjoiZnVsbF9zY3JlZW4ifSwicHJvZHVjdHMiOltdLCJwcm92ZW5hbmNlIjp7ImNvbXBpbGVyQ29tbWl0IjoiYWJjMTIzIiwiY29tcGlsZXJWZXJzaW9uIjoiMS4wLjAifSwicmVuZGVyIjpudWxsLCJyZXF1aXJlbWVudHMiOm51bGwsInJlc3BvbnNlcyI6e30sInJ1bGVHcm91cHMiOltdLCJzY2hlbWFWZXJzaW9uIjoibnV4aWUuam91cm5leS1yZWxlYXNlLnYzIiwic2NyZWVuQmVoYXZpb3JzIjpbXSwic3RhdGUiOnt9LCJ2aWV3TW9kZWxWYWx1ZXMiOltdfQ==",
+        "signature": {
+          "version": 1,
+          "algorithm": "ed25519",
+          "keyId": "TEST_ONLY_DEV_KEYPAIR",
+          "signatureBase64": "Ep06IV9HZajn9pSy/AQ4TI49sr66sOymLROxXWCPjXVsdkqnL+2SLOXVGFe/ut6ExL0MXuYbirbUTJ1TWpshAA=="
+        }
+      }
+    }
+  ],
+  "armedLegs": [
+    {
+      "reference": {
+        "experienceId": "experience_wrapper_v3",
+        "versionId": "version_wrapper_v3",
+        "legId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "descriptorSha256": "31ea757854cfcb3c68c103a1a1cc142532e2ecfee5adec7fb7ec7033b48f7d73"
+      },
+      "binding": {
+        "type": "new"
+      },
+      "entryCondition": {
+        "type": "event",
+        "eventName": "wrapper_v3_probe"
+      },
+      "context": {
+        "event": {},
+        "responses": {}
+      }
+    }
+  ]
+}
