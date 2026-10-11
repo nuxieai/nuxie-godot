@@ -170,7 +170,10 @@ def ios_xcframework(configuration):
                        ios_output=ROOT / '.native/artifacts/ios' / configuration)
     env, flags = environment(products=products), ios_flags(configuration)
     labels = ['//:ios_bridge_xcframework'] + (['//:ios_plugin_xcframework'] if SDK == 'godot' else [])
-    bazel('build', labels, flags, env)
+    # The publication query uses the top-level header configuration, while the
+    # plugin compiles its headers in each Apple split configuration.
+    publication_inputs = ['//:godot_headers'] if SDK == 'godot' else []
+    bazel('build', [*labels, *publication_inputs], flags, env)
     pin = json.loads((ROOT / 'NATIVE-PINS.json').read_text())['ios']['revision']
     receipt, native, files, links = inventory(products['ios'], 'ios', pin)
     destination = ROOT / ('ios-plugin/.build/xcframework' if SDK == 'godot' else '.native/xcframework')
