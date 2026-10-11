@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import XCTest
 import OSLog
 import Nuxie
@@ -45,7 +46,8 @@ final class NativeV3Tests: XCTestCase {
     let fixture = try XCTUnwrap(Bundle(for: Self.self).url(forResource: vector, withExtension: "json"))
 #endif
     let profile = try Data(contentsOf: fixture)
-    NativeV3Transport.reset(profile)
+    let apiKey = "pk_test_wrapper_\(UUID().uuidString)"
+    NativeV3Transport.reset(profile, apiKey: apiKey)
     XCTAssertTrue(URLProtocol.registerClass(NativeV3Transport.self))
     setenv("NUXIE_GODOT_API_ENDPOINT", "https://wrapper-v3-api.nuxie.test", 1)
     defer { URLProtocol.unregisterClass(NativeV3Transport.self); unsetenv("NUXIE_GODOT_API_ENDPOINT") }
@@ -62,16 +64,15 @@ final class NativeV3Tests: XCTestCase {
     let session = UUID().uuidString
     do {
       let configured = try await invoke(bridge, "configure", ["configuration": try json([
-        "contract": 1, "session": session, "apiKey": "pk_test_wrapper_\(UUID().uuidString)",
+        "contract": 1, "session": session, "apiKey": apiKey,
         "environment": "development", "logLevel": "debug", "purchaseHandlingMode": "observer", "externalBilling": false,
         "testingApiEndpoint": "https://wrapper-v3-api.nuxie.test",
       ])])
       XCTAssertNotNil(configured)
       try await wait("Native startup must fetch the signed profile") { NativeV3Transport.profileRequests > 0 }
-      let requests = NativeV3Transport.profileRequests
       let customer = "wrapper-v3-\(UUID().uuidString)"
       _ = try await invoke(bridge, "identify", ["session": session, "customerId": customer, "properties": "{}"])
-      try await wait("Fresh customer must receive its profile") { NativeV3Transport.profileRequests > requests }
+      try await wait("Fresh customer must receive its profile") { NativeV3Transport.profileCustomers.contains(customer) }
       if accepted { try await wait("Signed v3 profile must publish authoritative readiness") { NuxieSDK.shared.features.state == .ready } }
       else {
         // The public SDK intentionally has no profile-error callback. Its real
@@ -106,12 +107,13 @@ final class NativeV3Tests: XCTestCase {
       for index in 0..<20 {
         _ = try await invoke(bridge, "trigger", ["session": session, "event": "wrapper_v3_flush_sentinel", "properties": try json(["index": index])])
       }
-      func customerEvents() -> [[String: Any]] { NativeV3Transport.events.filter { $0["distinctId"] as? String == customer } }
+      func customerEvents() -> [[String: Any]] { NativeV3Transport.events.filter { $0["distinct_id"] as? String == customer } }
       try await wait("All 45 distinct probes must complete native event transport") {
         let indexes = customerEvents().filter { $0["event"] as? String == "wrapper_v3_flush_probe" }
           .compactMap { ($0["properties"] as? [String: Any])?["index"] as? Int }
         return Set(indexes) == Set(0..<45)
       }
+      XCTAssertTrue(NativeV3Transport.violations.isEmpty, NativeV3Transport.violations.joined(separator: "; "))
       let journeys = activities()
       let nativeJourneys = customerEvents().filter {
         ["$journey_leg_started", "$journey_leg_completed"].contains($0["event"] as? String ?? "")
@@ -137,7 +139,7 @@ final class NativeV3Tests: XCTestCase {
           XCTAssertEqual(context["leg_id"] as? String, String(repeating: "a", count: 64))
           XCTAssertEqual(context["leg_generation"] as? Int, 0)
         }
-        XCTAssertEqual(Set(nativeJourneys.compactMap { $0["idempotencyKey"] as? String }).count, 2)
+        XCTAssertEqual(Set(nativeJourneys.compactMap { $0["idempotency_key"] as? String }).count, 2)
         let completion = try XCTUnwrap(nativeJourneys.last)
         let nativeProperties = try XCTUnwrap(completion["properties"] as? [String: Any])
         let outputs = try XCTUnwrap(nativeProperties["outputs"] as? [String: Any])
@@ -152,6 +154,7 @@ final class NativeV3Tests: XCTestCase {
       print("NATIVE_V3_VERDICT vector=\(vector) accepted=\(accepted) profileRequests=\(NativeV3Transport.profileRequests) activities=\(journeys.count) nativeJourneyEvents=\(nativeJourneys.count)")
       _ = try await invoke(bridge, "shutdown", ["session": session])
     } catch {
+      XCTAssertTrue(NativeV3Transport.violations.isEmpty, NativeV3Transport.violations.joined(separator: "; "))
       _ = try? await invoke(bridge, "shutdown", ["session": session])
       throw error
     }
@@ -164,32 +167,57 @@ final class NativeV3Tests: XCTestCase {
 private final class NativeV3Transport: URLProtocol, @unchecked Sendable {
   private static let lock = NSLock()
   nonisolated(unsafe) private static var profile = Data()
-  nonisolated(unsafe) private static var requests = 0
+  nonisolated(unsafe) private static var expectedApiKey = ""
+  nonisolated(unsafe) private static var customers: [String] = []
   nonisolated(unsafe) private static var captured: [[String: Any]] = []
-  static func reset(_ data: Data) { lock.withLock { profile = data; requests = 0; captured = [] } }
-  static var profileRequests: Int { lock.withLock { requests } }
+  nonisolated(unsafe) private static var failures: [String] = []
+  static func reset(_ data: Data, apiKey: String) {
+    lock.withLock { profile = data; expectedApiKey = apiKey; customers = []; captured = []; failures = [] }
+  }
+  static var profileRequests: Int { lock.withLock { customers.count } }
+  static var profileCustomers: [String] { lock.withLock { customers } }
   static var events: [[String: Any]] { lock.withLock { captured } }
+  static var violations: [String] { lock.withLock { failures } }
   override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "wrapper-v3-api.nuxie.test" }
   override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
   override func stopLoading() {}
+  private func fail(_ message: String) {
+    Self.lock.withLock { Self.failures.append(message) }
+    client?.urlProtocol(self, didFailWithError: NSError(domain: "NativeV3Transport", code: 1,
+      userInfo: [NSLocalizedDescriptionKey: message]))
+  }
   override func startLoading() {
-    guard let url = request.url else { return }
+    guard let url = request.url else { fail("Missing URL"); return }
+    var body = request.httpBody ?? Data()
+    if body.isEmpty, let stream = request.httpBodyStream {
+      stream.open(); defer { stream.close() }
+      var buffer = [UInt8](repeating: 0, count: 4096)
+      while stream.hasBytesAvailable { let count = stream.read(&buffer, maxLength: buffer.count); if count <= 0 { break }; body.append(buffer, count: count) }
+    }
+    guard request.httpMethod == "POST", request.value(forHTTPHeaderField: "Content-Encoding") == nil,
+      let parsed = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any],
+      parsed["apiKey"] as? String == Self.lock.withLock({ Self.expectedApiKey }) else {
+      fail("Expected the native POST JSON transport with this case's apiKey"); return
+    }
     var headers = ["Content-Type": "application/json"]
     let response: Data
-    if url.path == "/profile" {
-      headers["Nuxie-App-Id"] = "app_wrapper_v3"; headers["Nuxie-App-Environment"] = "test"
-      response = Self.lock.withLock { Self.requests += 1; return Self.profile }
-    } else {
-      var body = request.httpBody ?? Data()
-      if body.isEmpty, let stream = request.httpBodyStream {
-        stream.open(); defer { stream.close() }
-        var buffer = [UInt8](repeating: 0, count: 4096)
-        while stream.hasBytesAvailable { let count = stream.read(&buffer, maxLength: buffer.count); if count <= 0 { break }; body.append(buffer, count: count) }
+    switch url.path {
+    case "/profile":
+      guard let customer = parsed["distinct_id"] as? String, !customer.isEmpty else {
+        fail("Profile must encode distinct_id"); return
       }
-      let parsed = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any] ?? [:]
-      let events = parsed["batch"] as? [[String: Any]] ?? (parsed["event"] is String ? [parsed] : [])
+      headers["Nuxie-App-Id"] = "app_wrapper_v3"; headers["Nuxie-App-Environment"] = "test"
+      response = Self.lock.withLock { Self.customers.append(customer); return Self.profile }
+      headers["ETag"] = "\"" + SHA256.hash(data: response).map { String(format: "%02x", $0) }.joined() + "\""
+    case "/batch", "/event":
+      let events = url.path == "/batch" ? parsed["batch"] as? [[String: Any]] : [parsed]
+      guard let events, !events.isEmpty, events.allSatisfy({
+        $0["event"] is String && $0["distinct_id"] is String && $0["idempotency_key"] is String
+      }) else { fail("Native event transport must carry event, distinct_id and idempotency_key"); return }
       Self.lock.withLock { Self.captured.append(contentsOf: events) }
       response = try! JSONSerialization.data(withJSONObject: ["status": "ok", "processed": events.count, "failed": 0, "total": events.count])
+    default:
+      fail("Unexpected native API route: " + url.path); return
     }
     let http = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: headers)!
     client?.urlProtocol(self, didReceive: http, cacheStoragePolicy: .notAllowed)
