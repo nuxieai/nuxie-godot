@@ -1,14 +1,31 @@
-env:
-  CI: "1"
-
-steps:
-  - label: ":godot: Prepare, package and validate pinned SDK"
-    command: bash scripts/ci.sh
-    agents:
-      queue: nuxie-pr
-      nuxie-platform: macos
-    timeout_in_minutes: 120
-    retry:
-      automatic:
-        - exit_status: -1
-          limit: 1
+{
+  "steps": [
+    {
+      "label": ":pipeline: Upload SDK pipeline",
+      "key": "pipeline-upload-legacy",
+      "if": "build.env(\"NUXIE_CI_RUNNER_POLICY_VERSION\") != \"2\"",
+      "command": "set -euo pipefail\npython3 scripts/ci/pipeline.py | buildkite-agent pipeline upload --replace --no-interpolation\n",
+      "agents": {
+        "queue": "nuxie-pr"
+      },
+      "timeout_in_minutes": 10
+    },
+    {
+      "label": ":pipeline: Upload SDK pipeline",
+      "key": "pipeline-upload-v2",
+      "if": "build.env(\"NUXIE_CI_RUNNER_POLICY_VERSION\") == \"2\"",
+      "command": "set -euo pipefail\npython3 scripts/ci/pipeline.py | buildkite-agent pipeline upload --replace --no-interpolation\n",
+      "agents": {
+        "queue": "nuxie-pr",
+        "nuxie-platform": "linux",
+        "nuxie-resources": "linux-16g-v2"
+      },
+      "timeout_in_minutes": 10,
+      "env": {
+        "NUXIE_CI_RUNNER_POLICY_VERSION": "2",
+        "NUXIE_CI_RUNNER_PROFILE": "linux-portable",
+        "NUXIE_BAZEL_REMOTE_CACHE_MODE": "off"
+      }
+    }
+  ]
+}

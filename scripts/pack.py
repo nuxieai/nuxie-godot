@@ -1,13 +1,37 @@
 #!/usr/bin/env python3
 """Stage exactly the customer addon, then zip and copy it into the standalone Lab."""
+import argparse
+import sys
 from pathlib import Path
 import hashlib
 import json
+import re
 import shutil
 import zipfile
 
 root = Path(__file__).resolve().parent.parent
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--require-android-handoff', action='store_true')
+args = parser.parse_args()
+if args.require_android_handoff:
+    sys.path.insert(0, str(root / 'scripts/bazel'))
+    from lane_artifacts import verify_restored
+    verify_restored(root / 'output/pipeline/android-products')
 pins = json.loads((root / 'NATIVE-PINS.json').read_text())
+if args.require_android_handoff:
+    from native_artifacts import inventory, sha256
+    for configuration in ('Debug', 'Release'):
+        producer = root / '.native/artifacts/ios' / configuration / 'sdk-artifacts.json'
+        receipt, native, files, _ = inventory(producer, 'ios', pins['ios']['revision'])
+        runtime = receipt.get('runtime', {})
+        if not re.fullmatch('[0-9a-f]{64}', runtime.get('checksum', '')) or not re.fullmatch('[0-9a-f]{40}', runtime.get('sourceCommit', '')):
+            raise SystemExit('The iOS producer must retain its checksum-pinned runtime identity')
+        platforms = {product.get('platform') for product in receipt.get('products', [])
+                     if product.get('configuration') == configuration}
+        if platforms != {'ios-device', 'ios-simulator'}:
+            raise SystemExit('Prepare both iOS platforms for ' + configuration + ' before packing')
+        if 'licenses/LICENSE' not in files or sha256(root / '.native/licenses/Nuxie-iOS.txt') != files['licenses/LICENSE']['sha256']:
+            raise SystemExit('The iOS dependency license differs from its original producer receipt')
 stage = root / '.native/package'
 addon = stage / 'addons/nuxie'
 if stage.exists():

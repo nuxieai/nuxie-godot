@@ -2,6 +2,15 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 source scripts/bazel/ci-cache.sh
+platform=all
+if [[ $# != 0 ]]; then
+  [[ $# == 2 && "$1" == --platform && "$2" == ios ]] || { echo "Expected --platform ios or no arguments" >&2; exit 1; }
+  platform=ios
+fi
+if [[ "$platform" == ios ]]; then
+  python3 scripts/bazel/lane_artifacts.py verify --input output/pipeline/android-products
+fi
+if [[ "$platform" == all ]]; then
 export NUXIE_BAZEL_JOBS="${NUXIE_BAZEL_JOBS:-2}"
 
 export JAVA_HOME="${JAVA_HOME:-/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home}"
@@ -11,6 +20,7 @@ export PATH="$JAVA_HOME/bin:$PATH"
 "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
   "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865" \
   "cmake;3.22.1"
+fi
 
 godot_version=$(python3 -c 'import json; print(json.load(open("NATIVE-PINS.json"))["godot"])')
 export GODOT_BIN="$PWD/.native/tools/Godot.app/Contents/MacOS/Godot"
@@ -39,6 +49,11 @@ if [[ "$installed_version" != "$godot_version.stable."* ]]; then
   mv "$download_dir/extracted/Godot.app" .native/tools/Godot.app
 fi
 
-python3 scripts/prepare-native.py
-python3 scripts/pack.py
-python3 scripts/bazel/ios_simulator.py -- python3 scripts/check.py
+if [[ "$platform" == ios ]]; then
+  python3 scripts/bazel/ios_simulator.py -- python3 scripts/check.py --platform ios
+  python3 scripts/pack.py --require-android-handoff
+else
+  python3 scripts/bazel/ios_simulator.py -- python3 scripts/check.py
+  python3 scripts/pack.py
+fi
+python3 scripts/check.py --platform portable

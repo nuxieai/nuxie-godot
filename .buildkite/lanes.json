@@ -1,0 +1,24 @@
+{
+  "env": {
+    "CI": "1"
+  },
+  "steps": [
+    {
+      "label": ":godot: Prepare, package and validate pinned SDK",
+      "command": "bash scripts/ci.sh",
+      "agents": {
+        "queue": "nuxie-pr",
+        "nuxie-platform": "macos"
+      },
+      "timeout_in_minutes": 120,
+      "retry": {
+        "automatic": [
+          {
+            "exit_status": -1,
+            "limit": 1
+          }
+        ]
+      }
+    }
+  ]
+}
