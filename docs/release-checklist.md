@@ -17,9 +17,10 @@
   interrupted or failed commands without describing those whole commands as
   passing. The helper owns its temporary simulator; a caller-provided
   `NUXIE_IOS_SIMULATOR_ID` must name an already booted, leased device.
-- Repack after final source/documentation changes, import that final package,
-  and retain its checksum in an external PR/release record. Keep final package
-  checksums outside documents contained in the archive.
+- Repack and import after final changes to package inputs. For changes outside
+  those inputs, verify exact input equivalence against the retained successful
+  archive. Retain its checksum in an external PR/release record; keep final
+  package checksums outside documents contained in the archive.
 - Import the ZIP into a clean Godot project. Enable/disable/re-enable the editor plugin; verify one autoload and correct iOS descriptor ownership. Check unsupported-engine/missing-artifact errors.
 - Export debug/release Android, inspect merged manifests and dependencies, verify release shrinking and 16 KiB native-library/ZIP alignment. The addon must not bundle a second Godot engine or conflicting C++ runtime.
 - Export iOS, inspect debug/release adapter selection, resource bundles, privacy manifests and embedded frameworks. Build the device archive and qualified simulator input separately. Do not present a locally repaired simulator template as an official template result.
