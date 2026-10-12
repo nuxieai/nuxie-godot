@@ -65,3 +65,16 @@ The default `ci.sh` invokes full native readiness once, packs, then checks the
 fresh Lab. The split `ci.sh --platform ios` requires restored Android products,
 runs Apple readiness, packs both inventories and imports the fresh Lab.
 Canonical local qualification remains `python3 scripts/check.py`.
+
+Under runner policy2, native preparation requires the fixed root-issued public
+qualification at `/etc/nuxie/buildkite-native-producer-qualifications.json` on
+Linux or `/Library/NuxieBuildkite/native-producer-qualifications.json` on Mac.
+The receipt binds the exact canonical producer repository/revision, complete
+executing frontend/control hashes, and platform/profile/capability. Missing or
+mismatched approval rejects before checkout or producer execution; dirty,
+untracked or changed frontend bytes reject before the isolated child. Produced
+artifacts are independently checked against their exact native receipt. Safe
+supplied receipts still skip producer execution. No job-selected receipt path,
+automatic approval, pin update or cache eligibility is granted. Legacy readiness
+commands remain unchanged; actual native and installed-host qualification is
+still required before activating these source modes.

@@ -11,6 +11,8 @@ import sys
 
 def checkout(root, sdk, pin):
     source = root / '.native' / sdk
+    if source.parent.is_symlink() or source.is_symlink():
+        raise ValueError('Preserving symlinked native checkout: ' + str(source))
     source.parent.mkdir(exist_ok=True)
     existed = source.exists()
     if not existed:
@@ -52,6 +54,8 @@ def prepare(root, sdks, configuration='Debug', android_output=None, ios_platform
     root = Path(root).resolve()
     pins = json.loads((root / 'NATIVE-PINS.json').read_text())
     native = root / '.native'
+    if native.is_symlink() or (native / '.prepare.lock').is_symlink():
+        raise ValueError('Preserving symlinked native checkout or preparation lock')
     native.mkdir(exist_ok=True)
     products = {}
     with (native / '.prepare.lock').open('a') as lock:
@@ -61,6 +65,10 @@ def prepare(root, sdks, configuration='Debug', android_output=None, ios_platform
             if supplied:
                 products[sdk] = supplied
                 continue
+            approval = None
+            if os.environ.get('NUXIE_CI_RUNNER_POLICY_VERSION') == '2':
+                from native_producer_policy import qualification
+                approval = qualification(sdk, pins[sdk])
             source, producer = checkout(root, sdk, pins[sdk])
             if sdk == 'ios':
                 if sys.platform != 'darwin':
@@ -78,6 +86,16 @@ def prepare(root, sdks, configuration='Debug', android_output=None, ios_platform
                 output = android_output or native / 'artifacts/android'
                 command = [sys.executable, str(producer), 'prepare', '--output', str(output),
                            '--maven-version', '0.2.0-' + pins[sdk]['revision']]
-            subprocess.run(command, cwd=source, check=True)
-            products[sdk] = Path(output) / 'sdk-artifacts.json'
+            environment = None
+            if approval is not None:
+                from native_producer_policy import verify
+                verify(source, sdk, pins[sdk], approval)
+                command[1:1] = ['-I', '-B']
+                environment = dict(os.environ, PYTHONDONTWRITEBYTECODE='1')
+            subprocess.run(command, cwd=source, env=environment, check=True)
+            manifest = Path(output) / 'sdk-artifacts.json'
+            if approval is not None:
+                from native_artifacts import inventory
+                inventory(manifest, sdk, pins[sdk]['revision'])
+            products[sdk] = manifest
     return products
