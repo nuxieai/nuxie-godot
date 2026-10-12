@@ -4,7 +4,7 @@ load("@rules_apple//apple:apple.bzl", "apple_static_xcframework")
 load("//scripts/bazel:godot_headers.bzl", "godot_headers")
 load("@rules_swift//swift:swift.bzl", "swift_library")
 load("@rules_apple//apple:apple.bzl", "apple_xcframework")
-load("@rules_apple//apple:ios.bzl", "ios_unit_test")
+load("@rules_apple//apple:ios.bzl", "ios_application", "ios_unit_test")
 load("@rules_kotlin//kotlin:android.bzl", "kt_android_library", "kt_android_local_test")
 load("//scripts/bazel:bridge_artifacts.bzl", "bridge_aar", "bridge_framework_module")
 load("@rules_android//android:rules.bzl", "aar_import")
@@ -116,11 +116,31 @@ swift_library(
     copts = ["-swift-version", "5"],
     target_compatible_with = ["@platforms//os:ios"],
 )
+# Hosted XCTest retains the native authentication log oracle.
+swift_library(
+    name = "native_v3_test_host_library",
+    testonly = True,
+    module_name = "NuxieNativeV3TestHost",
+    srcs = ["ios-plugin/TestHost/NativeV3TestHost.swift"],
+    copts = ["-swift-version", "5"],
+    target_compatible_with = ["@platforms//os:ios"],
+)
+ios_application(
+    name = "native_v3_test_host",
+    testonly = True,
+    bundle_id = "ai.nuxie.godot.native-v3-tests",
+    bundle_name = "NativeV3TestHost",
+    deps = [":native_v3_test_host_library"],
+    families = ["iphone", "ipad"],
+    infoplists = ["ios-plugin/TestHost/Info.plist"],
+    minimum_os_version = "15.0",
+)
 ios_unit_test(
     name = "ios_v3_bridge_test",
     deps = [":ios_v3_test_library"],
     resources = glob(["ios-plugin/Tests/NuxieGodotBridgeTests/native-v3/*.json"]),
     minimum_os_version = "15.0",
+    test_host = ":native_v3_test_host",
     tags = ["manual"],
 )
 
