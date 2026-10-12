@@ -59,9 +59,10 @@ Qualification ran on clean source
 
 The original command/stage records join successful checks against unchanged
 compiler inputs, generated resolver locks and authenticated native products.
-The final documentation-only revision is packed separately, and its
-package/source closure and ZIP identity belong in the PR or external release record. No
-uninterrupted whole-check PASS is asserted here.
+The final documentation-only source is verified against the retained successful
+archive: every canonical package input and the archive identity is unchanged.
+The source/package closure and ZIP identity belong in the PR or external release
+record. No uninterrupted whole-check PASS is asserted here.
 
 These checks cover screenless native adapter sessions, their public event/run
 output boundary, headless GDScript behavior and package/import integrity. They
