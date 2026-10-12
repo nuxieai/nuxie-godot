@@ -269,7 +269,7 @@
     "//scripts/bazel:native_artifacts.bzl%native_artifacts": {
       "general": {
         "bzlTransitiveDigest": "j0JYZ4LQMo77FLQD8Tut7fCizDfHQq9wawxSddafOsg=",
-        "usagesDigest": "5irzpBiEXF/ZafwokMfA3ZA4qncq5gkEn16zo0cfhAI=",
+        "usagesDigest": "jReSFMYRkrVX8t3dVVrwVwn2sLgZz0751I17q+UjAUM=",
         "recordedInputs": [
           "REPO_MAPPING:,bridge_maven rules_jvm_external++maven+bridge_maven"
         ],
@@ -293,6 +293,7 @@
                 "@@rules_jvm_external++maven+bridge_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_android": "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0",
                 "@@rules_jvm_external++maven+bridge_maven//:org_jetbrains_kotlin_kotlin_stdlib": "org.jetbrains.kotlin:kotlin-stdlib:2.0.21",
                 "@@rules_jvm_external++maven+bridge_maven//:androidx_sqlite_sqlite_framework": "androidx.sqlite:sqlite-framework:2.6.2",
+                "@@rules_jvm_external++maven+bridge_maven//:androidx_browser_browser": "androidx.browser:browser:1.8.0",
                 "@@rules_jvm_external++maven+bridge_maven//:org_jetbrains_kotlinx_kotlinx_serialization_json": "org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.2"
               }
             }
