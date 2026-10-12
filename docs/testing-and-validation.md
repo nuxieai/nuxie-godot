@@ -13,8 +13,9 @@ their exact clean producer revisions; an earlier product cannot be relabeled.
 Bazel compile actions share the existing host caches across worktrees, while
 compiler outputs, staged products and fixture evidence remain checkout-owned.
 
-The native v3 test target executes the shipped Swift adapter against four
-reproducible, genuinely signed profiles over a private loopback HTTP server.
+The native v3 test target runs the shipped Swift adapter in a test-only UIKit
+app with scene lifecycle support, against four reproducible, genuinely signed
+profiles over a private loopback HTTP server.
 It requires accepted v3 admission, ordered adapter and native Journey events,
 matching identities and completion outcome, and exact number/string/Boolean
 run outputs. Retired v1/v2 schemas and a v3 descriptor signed under the retired
