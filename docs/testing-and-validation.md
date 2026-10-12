@@ -25,33 +25,83 @@ required for every case. Test results execute afresh even when compilation
 reuses cached actions. The fixture generator, original native wire golden and
 independent verifier are tracked alongside the harness.
 
-These tests cover screenless native adapter sessions and their public event
-boundary. They do not establish rendered form editing, native text-input UI,
-Android JNI Journey execution, or an engine player. The historical native v2
-results below do not qualify these v3 pins. Actual v3 gate counts, original
-native receipts and prepared artifact hashes will be recorded separately after
-the current native consumer checks complete.
+Qualification ran on clean source
+`e938faf021eb87ed0c04406ba30a7ef73be667f9`:
+
+- Native preparation passed for Debug and Release Android bridge/Maven products
+  and iOS Swift/engine-plugin frameworks using the exact authenticated native
+  revisions above.
+- The default iOS 27 simulator passed all six existing Swift bridge cases and
+  four fresh signed-profile cases. Each signed case delivered all 45 transport
+  controls and completed public shutdown. The accepted case verified ordered
+  adapter/native Journey identity, outcome and typed outputs. Negatives observed
+  the terminal native authentication class after the complete identified-profile
+  response. The log redacts its specific reason; each exact signed descriptor
+  and domain input was independently checked against schema/signature rules.
+- All 56 frontend helpers passed with zero skips, including the real Mach-O
+  compiler checks.
+- The first owning `python3 scripts/check.py` invocation, through the canonical
+  simulator helper, passed six Python cases, real pinned-editor imports,
+  69 GDScript checks and three freshly executed
+  Android bridge cases. It exited 1 when independent Gradle lint could not find
+  the native Maven coordinate because native preparation had been omitted.
+  That whole invocation remains a failure, rather than an aggregate PASS.
+- The canonical `python3 scripts/prepare-native.py` followed by
+  `python3 scripts/pack.py` passed. The pinned editor imported the freshly
+  packaged Lab. The independent Gradle lint replay passed with zero errors and
+  one Gradle-version warning using the authenticated staged Maven coordinate,
+  a private Gradle/JVM scratch root, and this exact command:
+
+  ```sh
+  ./gradlew :android-plugin:lint --max-workers=1 --no-daemon \
+    -Pkotlin.compiler.execution.strategy=in-process
+  ```
+
+The original command/stage records join successful checks against unchanged
+compiler inputs, generated resolver locks and authenticated native products.
+The final documentation-only revision is packed separately, and its
+package/source closure and ZIP identity belong in the PR or external release record. No
+uninterrupted whole-check PASS is asserted here.
+
+These checks cover screenless native adapter sessions, their public event/run
+output boundary, headless GDScript behavior and package/import integrity. They
+leave rendered forms, native text-input UI, Android Journey execution, physical
+mobile devices and engine-player presentation unqualified. Historical native-v2
+and player evidence below retains the revisions and limits it names.
 
 ### Selecting the local simulator
 
-On this host, the identical compiled OSLog marker and capture command produced
-an exact PID/timestamp event on iOS 26.5 and no events on the tested iOS 27
-devices. This local runtime/device comparison is tracked in
-[UNIV-4333](https://universe.basis.dev/issue/UNIV-4333). It does not establish an
-Apple-wide defect. The normal helper still chooses the latest available runtime;
-on this host that default cannot satisfy the required log-readiness oracle.
+The hosted native-v3 target passed its strict log-readiness and authentication
+oracle on the helper's default iOS 27 simulator. A same-binary control established
+that the pinned standalone logic runner's `simctl spawn -s` disables the tested
+log path; ordinary hosted launch delivers the marker. The earlier standalone
+capture observations remain in
+[UNIV-4333](https://universe.basis.dev/issue/UNIV-4333).
+[UNIV-4322](https://universe.basis.dev/issue/UNIV-4322) tracks the separate React
+Native example lifecycle issue. This Godot adapter qualification covers its
+actual hosted sessions and does not establish other SDK consumers' runtime
+support.
 
-Select an owned, already booted iOS 26.5 simulator using the existing caller
-lease option before running the native gate:
+Use the canonical simulator helper from the SDK checkout:
 
 ```sh
-NUXIE_IOS_SIMULATOR_ID=YOUR_BOOTED_DEVICE_UUID python3 scripts/check.py
+python3 scripts/bazel/ios_simulator.py -- python3 scripts/check.py
 ```
 
-The caller owns shutdown and preserves its device. The helper deletes only
-simulators it creates itself. Authentication, PID/time scoping, signed-profile
-verification and the event oracle remain unchanged. Qualification records must
-include the exact selected UUID, runtime, command and original result.
+The helper selects the latest available supported iPhone runtime, creates and
+boots a private simulator, then shuts down and deletes only its own device after
+completion or failure. To use a separately leased, already booted device, pass
+its UUID:
+
+```sh
+NUXIE_IOS_SIMULATOR_ID=YOUR_BOOTED_DEVICE_UUID \
+  python3 scripts/bazel/ios_simulator.py -- python3 scripts/check.py
+```
+
+The caller retains shutdown and preservation ownership for that device.
+Authentication, response-completion barriers, signed-profile verification,
+PID/time scoping and event assertions stay unchanged. Qualification records must
+retain the selected UUID/runtime, exact command, original logs and result.
 
 ## Previous native v2 Bazel build migration
 
@@ -282,19 +332,28 @@ For that local simulator run, replace the generated Xcode project's `NuxieLab.xc
 
 ## Running checks
 
-From the SDK checkout:
+Follow the [integration guide](integration-guide.md) for the pinned editor and
+native toolchain setup. From the SDK checkout, prepare native products and the
+customer package before the owning check:
 
 ```sh
 python3 scripts/prepare-native.py
 python3 scripts/pack.py
-python3 scripts/check.py
+python3 scripts/bazel/ios_simulator.py -- python3 scripts/check.py
 ```
 
-Set `TEST_DESTINATION` to an Xcode destination such as
-`platform=iOS Simulator,id=<UDID>` to select a simulator for bridge tests. If
-unset, the check uses the first available iPhone simulator.
+Preparation supplies the exact native Maven coordinate required by independent
+Gradle lint. Packing stages the same addon into the Lab that customers install,
+so its headless import checks the prepared package layout. The owning check
+includes source tests, pinned Godot imports/GDScript behavior, Android bridge
+unit tests, independent Gradle lint and the original plus signed-v3 iOS suites.
+Inspect the actual summaries and original exit status.
 
-The prepared archive is copied into the Lab by `pack.py`, so mobile validation exercises the same addon layout a customer installs. Follow the [Lab guide](../examples/sdk-lab/README.md) for platform exports and local HTTP debugging.
+Use `NUXIE_IOS_SIMULATOR_ID` with the canonical helper for a leased, already
+booted caller device as described above; otherwise the helper owns its temporary
+simulator. Record any interrupted or failed command separately from successful
+source-equivalent stage replays. Follow the [Lab guide](../examples/sdk-lab/README.md)
+for platform exports and local HTTP debugging.
 
 ## Release qualifications
 

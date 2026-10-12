@@ -1,8 +1,25 @@
 # Release checklist
 
-- Update the canonical native pins and wrapper version together; build from those exact revisions.
-- Run `python3 scripts/check.py` and inspect the actual test summaries.
-- Run `python3 scripts/prepare-native.py` then `python3 scripts/pack.py` on the release candidate.
+- Update the canonical native pins and wrapper version together; build from
+  those exact revisions and retain authentic source/product receipts.
+- Prepare and pack the release candidate before running the canonical readiness
+  frontend:
+
+  ```sh
+  python3 scripts/prepare-native.py
+  python3 scripts/pack.py
+  python3 scripts/bazel/ios_simulator.py -- python3 scripts/check.py
+  ```
+
+  This supplies the exact native Maven coordinate before independent Gradle
+  lint and stages the customer addon into the Lab. Inspect every test summary
+  and the original whole-command exit. Retain explicit stage/source joins for
+  interrupted or failed commands without describing those whole commands as
+  passing. The helper owns its temporary simulator; a caller-provided
+  `NUXIE_IOS_SIMULATOR_ID` must name an already booted, leased device.
+- Repack after final source/documentation changes, import that final package,
+  and retain its checksum in an external PR/release record. Keep final package
+  checksums outside documents contained in the archive.
 - Import the ZIP into a clean Godot project. Enable/disable/re-enable the editor plugin; verify one autoload and correct iOS descriptor ownership. Check unsupported-engine/missing-artifact errors.
 - Export debug/release Android, inspect merged manifests and dependencies, verify release shrinking and 16 KiB native-library/ZIP alignment. The addon must not bundle a second Godot engine or conflicting C++ runtime.
 - Export iOS, inspect debug/release adapter selection, resource bundles, privacy manifests and embedded frameworks. Build the device archive and qualified simulator input separately. Do not present a locally repaired simulator template as an official template result.
