@@ -52,6 +52,15 @@ maven.install(
     fail_if_repin_required = True,
     artifacts = [
         "com.android.billingclient:billing:9.1.0",
+        "com.google.android.material:material:1.12.0",
+        # Match the native SDK's aligned Material/Lifecycle dependencies.
+        "androidx.lifecycle:lifecycle-common:2.6.2",
+        "androidx.lifecycle:lifecycle-livedata:2.6.2",
+        "androidx.lifecycle:lifecycle-livedata-core:2.6.2",
+        "androidx.lifecycle:lifecycle-process:2.6.2",
+        "androidx.lifecycle:lifecycle-runtime:2.6.2",
+        "androidx.lifecycle:lifecycle-viewmodel:2.6.2",
+        "androidx.lifecycle:lifecycle-viewmodel-savedstate:2.6.2",
         "androidx.sqlite:sqlite-framework:2.6.2",
         "androidx.browser:browser:1.8.0",
         "org.jetbrains.kotlin:kotlin-stdlib:2.1.20",
@@ -96,6 +105,7 @@ native.artifacts(
     pins = "//:NATIVE-PINS.json",
     android_dependencies = {
         "@bridge_maven//:com_android_billingclient_billing": "com.android.billingclient:billing:9.1.0",
+        "@bridge_maven//:com_google_android_material_material": "com.google.android.material:material:1.12.0",
         "@bridge_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_android": "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0",
         "@bridge_maven//:org_jetbrains_kotlin_kotlin_stdlib": "org.jetbrains.kotlin:kotlin-stdlib:2.0.21",
         "@bridge_maven//:androidx_sqlite_sqlite_framework": "androidx.sqlite:sqlite-framework:2.6.2",
