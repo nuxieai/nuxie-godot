@@ -1,6 +1,6 @@
 # Nuxie for Godot
 
-**0.4.0 release candidate · Godot 4.7.2 · iOS and Android**
+**1.0.0 · Godot 4.7.2 · iOS and Android**
 
 Bring native Experiences, purchases and feature access into your Godot game—with one addon for iOS and Android.
 
@@ -10,7 +10,7 @@ Local API checks pass on both platforms, including repeated iOS warm starts. Loc
 
 ## Install once, export to both platforms
 
-1. Use the prepared `nuxie-godot-0.4.0.zip` and extract `addons/nuxie` into your project. From a source checkout, run `python3 scripts/prepare-native.py` and `python3 scripts/pack.py` on macOS to produce it in `dist/`. See the [build guide](docs/integration-guide.md) for toolchain setup.
+1. Use the prepared [`nuxie-godot-1.0.0.zip`](https://github.com/nuxieai/nuxie-godot/releases/download/v1.0.0/nuxie-godot-1.0.0.zip) and extract `addons/nuxie` into your project. From a source checkout, run `python3 scripts/prepare-native.py` and `python3 scripts/pack.py` on macOS to produce it in `dist/`. See the [build guide](docs/integration-guide.md) for toolchain setup.
 2. Enable **Nuxie** in **Project → Project Settings → Plugins**. It registers the persistent `Nuxie` autoload and checks the native artifacts.
 3. For Android, install the matching Android build template and enable Gradle builds in the export preset. For iOS, enable the staged **NuxieGodot** plugin in the iOS export preset and use the matching export templates.
 
