@@ -74,7 +74,8 @@ class FixtureTests(unittest.TestCase):
             self.assertEqual(response.read(), (FIXTURES / 'accepted.json').read_bytes())
             self.assertEqual(response.headers['Nuxie-App-Id'], 'app_wrapper_v3')
             self.assertEqual(response.headers['Nuxie-App-Environment'], 'test')
-            self.assertEqual(response.headers['ETag'], '"52fc6361719faa0d004726d2a274493950d00a03113ce53406ce4142414213d2"')
+            expected_hash = next(case['sha256'] for case in self.fixture.manifest['cases'] if case['name'] == 'accepted')
+            self.assertEqual(response.headers['ETag'], '"' + expected_hash + '"')
 
     def test_wrong_native_wire_and_malformed_gzip_cannot_be_observed_as_delivery(self):
         self.rejects(lambda: self.post('/profile', {'apiKey': self.key, 'distinctId': 'wrapper-v3-regression'}))
