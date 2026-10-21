@@ -1,9 +1,9 @@
 {
-  "nativeIOSRevision": "28587b9b8e0c1fbcb012ebdff9645626706adcb8",
+  "nativeIOSRevision": "6b13a84a06f6788cdfb3c8891fb2c6425095db31",
   "nativeAndroidRevision": "2e4c39929b397c808da0b9eefe4741aa83f8a4d0",
   "sourceRepository": "https://github.com/nuxieai/nuxie-ios.git",
   "source": "fixtures/journeys/planes/release.json",
-  "sourceSha256": "daeba1cdbb32233f97435f144d9908686780f013c15b1e739ba752aaeda0c9b2",
+  "sourceSha256": "3d9150c350ba38ace783765458061b06de5eb69cffd35d563bcacd5304565c9c",
   "publicKeyBase64": "IVL40Zt5HSRFMkLhXy6rbLfP+ntqXtMAl5YOBpiB2xI=",
   "trigger": "wrapper_v3_probe",
   "triggerProperties": {
@@ -42,8 +42,8 @@
       "verdict": "accepted",
       "reason": null,
       "file": "accepted.json",
-      "sha256": "52fc6361719faa0d004726d2a274493950d00a03113ce53406ce4142414213d2",
-      "descriptorSha256": "31ea757854cfcb3c68c103a1a1cc142532e2ecfee5adec7fb7ec7033b48f7d73",
+      "sha256": "b3e5bfea82c3b1c30638a8aeec2d2f4e7ed05901de2da4b4b34e004446447ce8",
+      "descriptorSha256": "d974f3d2012d2a8ad0995446e4a4dc9071fd3a506df9226b71c0f8c288335338",
       "validUnderDeclaredDomain": true,
       "validUnderV3Domain": true
     },
@@ -54,8 +54,8 @@
       "verdict": "rejected",
       "reason": "journey_release.descriptor.invalid",
       "file": "retired-v1.json",
-      "sha256": "a84d369e85e6cc43519d9ee309c9071a0dd6eeb910f611031aaa227af5753630",
-      "descriptorSha256": "f4ecd6a939beab282834530d6ef20bd82801d26106bf7d311daaaf1a04dccfd0",
+      "sha256": "634f9f990bf8a9668b28ece4294c9c155bfb6a9e2479f3d98774d8b036a8f9fa",
+      "descriptorSha256": "2c8640f688ff6a4b00876b41798352814778181aa79269de18b2b2673b690dd3",
       "validUnderDeclaredDomain": true,
       "validUnderV3Domain": true
     },
@@ -66,8 +66,8 @@
       "verdict": "rejected",
       "reason": "journey_release.descriptor.invalid",
       "file": "retired-v2.json",
-      "sha256": "2d16f8481b5fcbb8bbcc7a9acd326dda847aa079ccb6716b407d074fd29ee743",
-      "descriptorSha256": "ca56538120187772573d76c95df03d8c68a844a439a7793b156012b3325c18fd",
+      "sha256": "4c5fb76757fb53edbf7205c8d3177be18120165f28fffe60348073693474345a",
+      "descriptorSha256": "f222d24025b6a212855f6b00aca0c9f3c9a80a91c1c611d86ca3b7074b5758b6",
       "validUnderDeclaredDomain": true,
       "validUnderV3Domain": true
     },
@@ -78,8 +78,8 @@
       "verdict": "rejected",
       "reason": "journey_release.signature.bad_signature",
       "file": "wrong-domain.json",
-      "sha256": "45cd397c331299c9f15be40f6921f53b974c9844be8296c8d25274129b662b68",
-      "descriptorSha256": "31ea757854cfcb3c68c103a1a1cc142532e2ecfee5adec7fb7ec7033b48f7d73",
+      "sha256": "08d851cca8685f7a901bdb22d918d48130f8ae1c487b54914d3a93722f2e5ce2",
+      "descriptorSha256": "d974f3d2012d2a8ad0995446e4a4dc9071fd3a506df9226b71c0f8c288335338",
       "validUnderDeclaredDomain": true,
       "validUnderV3Domain": false
     }
