@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/nuxieai/nuxie-ios.git",
-  "revision": "6b13a84a06f6788cdfb3c8891fb2c6425095db31",
+  "revision": "5d2f592bf6a3f29a7cdd406ab5c7fd77e2fe9773",
   "source": "fixtures/events/batch-item-encoding.json",
   "sha256": "f0ba212c3428ea8efc5defd7dc67c4d97c310dbcdcfd529e9cd9556c237b6172"
 }
