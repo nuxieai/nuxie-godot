@@ -106,6 +106,20 @@ class FixtureTests(unittest.TestCase):
             with self.subTest(row=mutation):
                 self.assertFalse(terminal_authentication_failure(mutation, 4288, now - 1))
 
+    def test_settled_profile_service_authentication_error_is_observed(self):
+        now = time.time()
+        row = {'timestamp': datetime.fromtimestamp(now, timezone.utc).isoformat(), 'processID': 4288,
+               'subsystem': 'io.nuxie.sdk', 'category': 'NuxieSDK',
+               'eventMessage': '[Nuxie] [DEBUG] [ProfileService.swift:48] Profile refresh failed: '
+                               '<redacted:error=JourneyReleaseAuthenticationError hmac-sha256:0123456789abcdef>'}
+        self.assertTrue(terminal_authentication_failure(row, 4288, now - 1))
+        for mutation in [dict(row, processID=4289), dict(row, timestamp=datetime.fromtimestamp(now - 10, timezone.utc).isoformat()),
+                         dict(row, category='NativeV3Tests'), dict(row, subsystem='io.nuxie.wrapper.v3-tests'),
+                         dict(row, eventMessage=row['eventMessage'].replace('JourneyReleaseAuthenticationError', 'URLError')),
+                         dict(row, eventMessage=row['eventMessage'].replace('ProfileService.swift', 'NuxieSDK.swift'))]:
+            with self.subTest(row=mutation):
+                self.assertFalse(terminal_authentication_failure(mutation, 4288, now - 1))
+
     def test_authentication_snapshot_requires_identified_delivery_and_event_time_not_stream_arrival(self):
         now = time.time()
         row = {'timestamp': datetime.fromtimestamp(now - 10, timezone.utc).isoformat(), 'processID': 4288,

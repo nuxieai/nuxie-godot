@@ -154,7 +154,7 @@ def simulator_flags():
 
 
 def ios_check(test=False):
-    products = prepare(ROOT, ['ios'])
+    products = prepare(ROOT, ['ios'], ios_output=ROOT / '.native/artifacts/ios-tests')
     flags = ios_flags('Debug', True)
     if test:
         flags += simulator_flags()
@@ -228,7 +228,7 @@ def ios_xcframework(configuration):
     licenses.mkdir(exist_ok=True)
     copy_verified_file(native, 'licenses/LICENSE', licenses / 'Nuxie-iOS.txt', files)
     if SDK == 'godot':
-        headers = outputs('//:godot_headers', flags, env)
+        headers = outputs('config(//:godot_headers, target)', flags, env)
         if len(headers) != 1 or not headers[0].is_dir():
             raise ValueError('Expected the declared Godot header tree')
         for source, name in [('LICENSE.txt', 'Godot.txt'), ('COPYRIGHT.txt', 'Godot-COPYRIGHT.txt')]:

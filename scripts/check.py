@@ -42,10 +42,11 @@ def main():
         portable()
     if selected in ('all', 'android'):
         run(['python3', 'scripts/bazel/sdk.py', 'test-android'])
-        # Gradle lint remains an independent upstream analysis oracle.
-        run(['./gradlew', ':android-plugin:lint'])
     if selected != 'portable':
         run(['python3', 'scripts/prepare-native.py', '--platform', selected])
+    if selected in ('all', 'android'):
+        # Gradle lint remains an independent upstream analysis oracle.
+        run(['./gradlew', ':android-plugin:lint'])
     if selected in ('all', 'ios'):
         run(['python3', 'scripts/check-ios.py'])
 

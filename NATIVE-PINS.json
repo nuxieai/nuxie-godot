@@ -1,10 +1,10 @@
 {
-  "version": "0.4.0",
+  "version": "0.4.1",
   "contract": 1,
   "godot": "4.7.2",
   "ios": {
     "repository": "https://github.com/nuxieai/nuxie-ios.git",
-    "revision": "28587b9b8e0c1fbcb012ebdff9645626706adcb8"
+    "revision": "6b13a84a06f6788cdfb3c8891fb2c6425095db31"
   },
   "android": {
     "repository": "https://github.com/nuxieai/nuxie-android.git",

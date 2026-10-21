@@ -19,7 +19,8 @@ import uuid
 
 AUTHENTICATION_FAILURE = re.compile(
     r'\[Nuxie\] (?:\[WARNING\] \[NuxieSDK\.swift:\d+\] Profile fetch failed|'
-    r'\[DEBUG\] \[UserTransitionCoordinator\.swift:\d+\] Identity profile refresh failed): '
+    r'\[DEBUG\] \[UserTransitionCoordinator\.swift:\d+\] Identity profile refresh failed|'
+    r'\[DEBUG\] \[ProfileService\.swift:\d+\] Profile refresh failed): '
     r'<redacted:error=JourneyReleaseAuthenticationError hmac-sha256:[0-9a-f]{16}>')
 LOG_SUBSYSTEM = 'io.nuxie.wrapper.v3-tests'
 
