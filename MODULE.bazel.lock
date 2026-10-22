@@ -269,7 +269,7 @@
     "//scripts/bazel:native_artifacts.bzl%native_artifacts": {
       "general": {
         "bzlTransitiveDigest": "j0JYZ4LQMo77FLQD8Tut7fCizDfHQq9wawxSddafOsg=",
-        "usagesDigest": "jReSFMYRkrVX8t3dVVrwVwn2sLgZz0751I17q+UjAUM=",
+        "usagesDigest": "gNx1v/7Udo7+51uYkNbDmmzrolH/uDXdYb8BXXTeCsI=",
         "recordedInputs": [
           "REPO_MAPPING:,bridge_maven rules_jvm_external++maven+bridge_maven"
         ],
@@ -290,6 +290,7 @@
               "manifest": "",
               "android_dependencies": {
                 "@@rules_jvm_external++maven+bridge_maven//:com_android_billingclient_billing": "com.android.billingclient:billing:9.1.0",
+                "@@rules_jvm_external++maven+bridge_maven//:com_google_android_material_material": "com.google.android.material:material:1.12.0",
                 "@@rules_jvm_external++maven+bridge_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_android": "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0",
                 "@@rules_jvm_external++maven+bridge_maven//:org_jetbrains_kotlin_kotlin_stdlib": "org.jetbrains.kotlin:kotlin-stdlib:2.0.21",
                 "@@rules_jvm_external++maven+bridge_maven//:androidx_sqlite_sqlite_framework": "androidx.sqlite:sqlite-framework:2.6.2",
@@ -301,10 +302,47 @@
         }
       }
     },
+    "@@protobuf+//python/dist:system_python.bzl%system_python_extension": {
+      "general": {
+        "bzlTransitiveDigest": "pmsA+awieucfllLc2n7k8xEoPp0i5LF9Hw6mGX0cqSQ=",
+        "usagesDigest": "A+RWmbKdBBwZcBbNGNvfPbqG2vYZRjVrFp6x1iRUrAk=",
+        "recordedInputs": [],
+        "generatedRepoSpecs": {
+          "system_python": {
+            "repoRuleId": "@@protobuf+//python/dist:system_python.bzl%system_python",
+            "attributes": {
+              "minimum_python_version": "3.9"
+            }
+          }
+        }
+      }
+    },
+    "@@pybind11_bazel+//:internal_configure.bzl%internal_configure_extension": {
+      "general": {
+        "bzlTransitiveDigest": "BsgERqYptkJeeC8wFaLj251IoTZTSy/58WA6kVp0q8I=",
+        "usagesDigest": "D1r3lfzMuUBFxgG8V6o0bQTLMk3GkaGOaPzw53wrwyw=",
+        "recordedInputs": [
+          "REPO_MAPPING:pybind11_bazel+,bazel_tools bazel_tools",
+          "FILE:@@pybind11_bazel+//MODULE.bazel e6f4c20442eaa7c90d7190d8dc539d0ab422f95c65a57cc59562170c58ae3d34"
+        ],
+        "generatedRepoSpecs": {
+          "pybind11": {
+            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
+            "attributes": {
+              "build_file": "@@pybind11_bazel+//:pybind11-BUILD.bazel",
+              "strip_prefix": "pybind11-2.12.0",
+              "urls": [
+                "https://github.com/pybind/pybind11/archive/v2.12.0.zip"
+              ]
+            }
+          }
+        }
+      }
+    },
     "@@rules_kotlin+//src/main/starlark/core/repositories:bzlmod_setup.bzl%rules_kotlin_extensions": {
       "general": {
         "bzlTransitiveDigest": "1eDDuTFD39r/W+K8QY/4BN9y/SvxQjD9Z0bTSo8NWTM=",
-        "usagesDigest": "kg9zj0zG0J2GLnHcU0cm/0zna86yH6tzWi6lUcYEHQ0=",
+        "usagesDigest": "K8GrqPjr92SvKFDUZpr1rLOjtXIFq1jjY8dkquNsWHo=",
         "recordedInputs": [
           "REPO_MAPPING:rules_kotlin+,bazel_tools bazel_tools"
         ],
