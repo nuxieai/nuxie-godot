@@ -8,6 +8,6 @@
   },
   "android": {
     "repository": "https://github.com/nuxieai/nuxie-android.git",
-    "revision": "2e4c39929b397c808da0b9eefe4741aa83f8a4d0"
+    "revision": "06c78d2b4993a077b0ecadc3ccf21303bd1f6406"
   }
 }
