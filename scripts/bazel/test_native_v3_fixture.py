@@ -136,6 +136,11 @@ class FixtureTests(unittest.TestCase):
         self.assertFalse(self.fixture.snapshot(self.key)['authenticationFailures'])
         with self.post('/profile', {'apiKey': self.key, 'distinct_id': 'wrapper-v3-regression'}) as response:
             response.read()
+        # Anchor the event to actual delivery; a slow HTTP request may exceed 100 ms.
+        with self.fixture.lock:
+            completed = self.fixture.active['profiles'][-1]['responseCompletedAt']
+        row['timestamp'] = datetime.fromtimestamp(completed + 1, timezone.utc).isoformat()
+        self.log.write_text(json.dumps(row) + '\n')
         self.assertEqual(self.fixture.snapshot(self.key)['authenticationFailures'], [row])
 
     def test_cached_or_empty_test_results_and_failed_teardown_do_not_qualify(self):
