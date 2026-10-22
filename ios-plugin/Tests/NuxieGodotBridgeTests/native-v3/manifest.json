@@ -1,6 +1,6 @@
 {
   "nativeIOSRevision": "5d2f592bf6a3f29a7cdd406ab5c7fd77e2fe9773",
-  "nativeAndroidRevision": "2e4c39929b397c808da0b9eefe4741aa83f8a4d0",
+  "nativeAndroidRevision": "06c78d2b4993a077b0ecadc3ccf21303bd1f6406",
   "sourceRepository": "https://github.com/nuxieai/nuxie-ios.git",
   "source": "fixtures/journeys/planes/release.json",
   "sourceSha256": "3d9150c350ba38ace783765458061b06de5eb69cffd35d563bcacd5304565c9c",
