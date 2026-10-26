@@ -41,13 +41,24 @@ class PoolRoutingTests(unittest.TestCase):
                 self.assertEqual(pool.gradle_worker_arguments(arguments),['lint','--no-daemon','--max-workers=1'])
             self.assertEqual(pool.gradle_worker_arguments(['lint','--max-workers=8']),['lint','--no-daemon','--max-workers=4'])
 
+    def test_relative_repository_uses_sdk_settings_root_not_subproject(self):
+        import json
+        with tempfile.TemporaryDirectory() as temp:
+            home=Path(temp);root=home/'sdk';(root/'.native/maven').mkdir(parents=True);(root/'android-plugin').mkdir()
+            helper=home/'.local/share/nuxie-homelab/sdk-task.py';helper.parent.mkdir(parents=True);record=home/'record.json'
+            helper.write_text("from pathlib import Path\nimport os,json\ndef route(root,args,**kwargs):\n Path(os.environ['RECORD']).write_text(json.dumps({k:str(v) for k,v in kwargs['input_files'].items()}))\n return 17\n")
+            with patch.object(pool,'ROOT',root),patch.object(pool.Path,'home',return_value=home),patch.dict(os.environ,{'_NUXIE_POOL_NESTED':'0','NUXIE_HOMELAB':'1','NUXIE_EXECUTION':'pool','NUXIE_CI_RUNNER_POLICY_VERSION':'0','RECORD':str(record),'NUXIE_ANDROID_MAVEN_REPO':'.native/maven'}):
+                self.assertEqual(pool.dispatch('gradle',['-p',str(root/'android-plugin'),'lint']),17)
+                inputs=json.loads(record.read_text())
+                self.assertEqual(inputs['.nuxie/sdk-inputs/maven-repository'],str((root/'.native/maven').resolve()))
+
     def test_attached_project_arguments_normalize_once(self):
         import json
         with tempfile.TemporaryDirectory() as temp:
             home=Path(temp);helper=home/'.local/share/nuxie-homelab/sdk-task.py';helper.parent.mkdir(parents=True)
             record=home/'record.json'
             helper.write_text("from pathlib import Path\nimport os,json\ndef route(root,args,**kwargs):\n Path(os.environ['RECORD']).write_text(json.dumps(args))\n return 17\n")
-            with patch.object(pool.Path,'home',return_value=home),patch.dict(os.environ,{'_NUXIE_POOL_NESTED':'0','NUXIE_HOMELAB':'1','NUXIE_EXECUTION':'pool','NUXIE_CI_RUNNER_POLICY_VERSION':'0','RECORD':str(record)}):
+            with patch.object(pool.Path,'home',return_value=home),patch.dict(os.environ,{'_NUXIE_POOL_NESTED':'0','NUXIE_HOMELAB':'1','NUXIE_EXECUTION':'pool','NUXIE_CI_RUNNER_POLICY_VERSION':'0','RECORD':str(record),'NUXIE_ANDROID_MAVEN_REPO':''}):
                 for option in ('-pandroid-plugin', '-p=android-plugin'):
                     self.assertEqual(pool.dispatch('gradle',[option,'lint']),17)
                     arguments=json.loads(record.read_text())
