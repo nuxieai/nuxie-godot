@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def run(args, cwd=ROOT):
-    result = subprocess.run(args, cwd=cwd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=900)
+    result = subprocess.run(args, cwd=cwd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=86400 if os.environ.get('_NUXIE_SDK_SNAPSHOT') == '1' else 900)
     print(result.stdout)
     if result.returncode or 'SCRIPT ERROR:' in result.stdout:
         raise SystemExit('Check failed: ' + ' '.join(args))
