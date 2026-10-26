@@ -28,6 +28,12 @@ class PoolRoutingTests(unittest.TestCase):
             self.assertIn(logical,result['inputs'])
             self.assertFalse(any(logical==name or logical.startswith(name+'/') for name in result['outputs']))
 
+    def test_declined_gradle_call_preserves_existing_worker_budget(self):
+        from types import SimpleNamespace
+        with patch.object(pool.sys,'argv',['pool.py','gradle','--max-workers=1','clean']),patch.object(pool,'dispatch',return_value=None),patch.dict(os.environ,{'_NUXIE_POOL_NESTED':'0'}),patch.object(pool.subprocess,'run',return_value=SimpleNamespace(returncode=0)) as run:
+            self.assertEqual(pool.main(),0)
+            self.assertEqual(run.call_args.args[0],[str(pool.ROOT/'gradlew'),'--max-workers=1','clean'])
+
     def test_portable_and_platform_requirements(self):
         platform, tools = pool.selection('sdk', ['test'])
         self.assertEqual(platform, 'portable')
