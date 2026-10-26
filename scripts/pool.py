@@ -131,7 +131,7 @@ def dispatch(mode, arguments, *, output=None, command=None, input_files=None, en
                 args.append('--nuxie-pool-maven-repository=' + value)
             else:
                 selected = Path(unquote(uri.path) if uri.scheme == 'file' else value).expanduser()
-                if not selected.is_absolute(): selected = project_directory / selected
+                if not selected.is_absolute(): selected = ROOT / selected
                 selected = selected.resolve(strict=True)
                 input_files = {**(input_files or {}), '.nuxie/sdk-inputs/maven-repository': selected}
                 args.append('--nuxie-pool-maven-repository=' + str(selected))
