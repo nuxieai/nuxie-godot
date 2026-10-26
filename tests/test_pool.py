@@ -68,10 +68,15 @@ class PoolRoutingTests(unittest.TestCase):
         with patch.dict(os.environ, {'_NUXIE_POOL_NESTED':'0','NUXIE_HOMELAB':'1','NUXIE_EXECUTION':'pool','NUXIE_CI_RUNNER_POLICY_VERSION':'0'}),patch.object(pool.Path,'home',side_effect=AssertionError('caller-local operation')):
             self.assertIsNone(pool.dispatch('gradle',['clean',':example-app:assembleDebug']))
             self.assertIsNone(pool.dispatch('gradle',[':nuxie-android:cleanTestDebugUnitTest']))
-            for arguments in (['test','--init-script','/caller/init.gradle'],['-b','/caller/build.gradle','tasks'],['--build-file=/caller/build.gradle','tasks'],['-g/caller/cache','test'],['--gradle-user-home','/caller/cache','test'],['--project-cache-dir=/caller/cache','test'],['--include-build','/caller/other','test'],['-Dorg.gradle.java.home=/caller/java','test'],['-p','/caller/other','test'],['--status'],['--continuous','test']):
+            for arguments in (['test','--init-script','/caller/init.gradle'],['-b','/caller/build.gradle','tasks'],['--build-file=/caller/build.gradle','tasks'],['-g/caller/cache','test'],['--gradle-user-home','/caller/cache','test'],['--project-cache-dir=/caller/cache','test'],['--include-build','/caller/other','test'],['-Dorg.gradle.java.home=/caller/java','test'],['-p','/caller/other','test'],['--system-prop','org.gradle.java.home=/caller/java','test'],['--system-prop=org.gradle.java.home=/caller/java','test'],['--status'],['--continuous','test']):
                 self.assertIsNone(pool.dispatch('gradle',arguments),arguments)
             self.assertIsNone(pool.dispatch('gradle',['--offline','test']))
             self.assertIsNone(pool.dispatch('gradle',[':nuxie-android:publishToMavenLocal']))
+
+    def test_external_implicit_gradle_project_stays_local(self):
+        with patch.object(pool.Path,'cwd',return_value=Path('/caller/other-project')):
+            self.assertTrue(pool.caller_gradle_context(['test']))
+            self.assertFalse(pool.caller_gradle_context(['-p',str(pool.ROOT),'test']))
 
     def test_portable_and_platform_requirements(self):
         platform, tools = pool.selection('sdk', ['test'])
