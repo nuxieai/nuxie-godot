@@ -130,7 +130,9 @@ def main():
     status = dispatch(mode, arguments)
     if status is not None: return status
     if mode == 'gradle':
-        command = [str(ROOT / 'gradlew'), *arguments, '--no-daemon', '--max-workers=' + os.environ.get('NUXIE_BAZEL_CPU', '2')]
+        command = [str(ROOT / 'gradlew'), *arguments]
+        if os.environ.get('_NUXIE_POOL_NESTED') == '1':
+            command += ['--no-daemon', '--max-workers=' + os.environ.get('NUXIE_BAZEL_CPU', '2')]
     elif SDK == 'react-native' and mode == 'check':
         # Dependencies belong to the selected host's disposable snapshot.
         subprocess.run(['pnpm', '--ignore-workspace', 'install', '--frozen-lockfile'], cwd=ROOT, check=True)
