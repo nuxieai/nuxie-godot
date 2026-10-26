@@ -70,7 +70,8 @@ def dispatch(mode, arguments, *, output=None, command=None, input_files=None, en
     if output is not None and not any(a == '--output' or a.startswith('--output=') for a in args):
         args += ['--output', str(output)]
     return module.route(ROOT, args, frontend=frontend, platform=platform,
-                        requirements=requirements, outputs=names, input_files=input_files, environment=environment)
+                        requirements=requirements, outputs=names, input_files=input_files, environment=environment,
+                        merge_outputs=[name for name in names if not (SDK == 'react-native' and name == 'dist')])
 
 
 def main():
