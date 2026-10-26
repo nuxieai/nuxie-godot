@@ -53,6 +53,11 @@ class PoolRoutingTests(unittest.TestCase):
                     arguments=json.loads(record.read_text())
                     self.assertEqual(arguments,['gradle','--project-dir='+str((Path.cwd()/'android-plugin').resolve()),'lint'])
 
+    def test_caller_cache_operations_remain_local(self):
+        with patch.dict(os.environ, {'_NUXIE_POOL_NESTED':'0','NUXIE_HOMELAB':'1','NUXIE_EXECUTION':'pool','NUXIE_CI_RUNNER_POLICY_VERSION':'0'}),patch.object(pool.Path,'home',side_effect=AssertionError('caller-local operation')):
+            self.assertIsNone(pool.dispatch('gradle',['--offline','test']))
+            self.assertIsNone(pool.dispatch('gradle',[':nuxie-android:publishToMavenLocal']))
+
     def test_portable_and_platform_requirements(self):
         platform, tools = pool.selection('sdk', ['test'])
         self.assertEqual(platform, 'portable')

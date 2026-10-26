@@ -81,6 +81,8 @@ def dispatch(mode, arguments, *, output=None, command=None, input_files=None, en
             or os.environ.get('NUXIE_EXECUTION') == 'local' or os.environ.get('NUXIE_CI_RUNNER_POLICY_VERSION') == '2' or '--help' in arguments or '-h' in arguments): return None
     if mode == 'gradle':
         tasks = gradle_tasks(arguments)
+        # These explicitly address the caller's dependency cache or Maven home.
+        if '--offline' in arguments or any(task.endswith('ToMavenLocal') for task in tasks): return None
         if (tasks and all(value == 'clean' for value in tasks)) or '--stop' in arguments: return None
     helper = Path.home() / '.local/share/nuxie-homelab/sdk-task.py'
     configured = (Path.home() / '.config/nuxie/homelab-cluster.json').is_file()
