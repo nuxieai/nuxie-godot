@@ -39,6 +39,10 @@ SAVED="`pwd`"
 cd "`dirname \"$PRG\"`/" >/dev/null
 APP_HOME="`pwd -P`"
 cd "$SAVED" >/dev/null
+if [ "${_NUXIE_POOL_NESTED:-0}" != 1 ] && [ "${NUXIE_HOMELAB:-1}" != 0 ] && [ "${NUXIE_EXECUTION:-}" != local ] && [ -f "$HOME/.config/nuxie/homelab-cluster.json" ]; then
+    exec python3 "$APP_HOME/scripts/pool.py" gradle "$@"
+fi
+
 
 APP_NAME="Gradle"
 APP_BASE_NAME=`basename "$0"`
