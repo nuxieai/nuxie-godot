@@ -250,6 +250,12 @@ def android_build(configuration='Release', test=False):
         return artifact('//:android_bridge_aar', flags, env, '.aar'), products['android']
 
 
+def pool_dispatch(args):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from pool import dispatch
+    return dispatch('sdk', sys.argv[1:], command=args.command)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = ['build', 'test', 'build-android', 'check-ios', 'prepare-ios']
@@ -258,9 +264,7 @@ def main():
     parser.add_argument('command', choices=commands)
     parser.add_argument('--configuration', choices=['Debug', 'Release'], default='Release')
     args = parser.parse_args()
-    sys.path.insert(0, str(ROOT / 'scripts'))
-    from pool import dispatch
-    status = dispatch('sdk', sys.argv[1:])
+    status = pool_dispatch(args)
     if status is not None:
         raise SystemExit(status)
     if args.command == 'test-ios' and not os.environ.get('NUXIE_IOS_SIMULATOR_ID'):
@@ -281,7 +285,7 @@ def main():
         product = android_build(args.configuration)[0]
         destination = ROOT / '.native/build/android' / product.name
         destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(product, destination)
+        publish_file(product, destination)
         print(destination)
 
 
