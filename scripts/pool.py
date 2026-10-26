@@ -9,7 +9,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parent.parent
 SDK = 'godot'
-OUTPUTS = ['.native/test-evidence', '.native/build', 'dist', '.native/maven', '.native/licenses', 'ios-plugin/.build/xcframework', 'addons/nuxie/android/bin', 'addons/nuxie/android/maven', 'addons/nuxie/ios', 'addons/nuxie/artifact-checksums.json']
+OUTPUTS = ['.native/artifacts', '.native/test-evidence', '.native/build', 'dist', '.native/maven', '.native/licenses', 'ios-plugin/.build/xcframework', 'addons/nuxie/android/bin', 'addons/nuxie/android/maven', 'addons/nuxie/ios', 'addons/nuxie/artifact-checksums.json']
 
 
 def selection(mode, arguments, command=None):
@@ -70,6 +70,9 @@ def dispatch(mode, arguments, *, output=None, command=None, input_files=None, en
     args = list(arguments) if mode == 'sdk' else [mode, *arguments]
     if output is not None and not any(a == '--output' or a.startswith('--output=') for a in args):
         args += ['--output', str(output)]
+    addon = ROOT / 'examples/sdk-lab/addons'
+    if mode == 'check' and addon.is_dir():
+        input_files = {'examples/sdk-lab/addons': addon, **(input_files or {})}
     return module.route(ROOT, args, frontend=frontend, platform=platform,
                         requirements=requirements, outputs=names, input_files=input_files, environment=environment,
                         merge_outputs=[name for name in names if not (SDK == 'react-native' and name == 'dist')])
