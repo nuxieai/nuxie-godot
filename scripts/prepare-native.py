@@ -16,7 +16,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--platform', choices=('all', 'android', 'ios'), default='all')
     selected = parser.parse_args().platform
-    status = dispatch('prepare-native', sys.argv[1:])
+    status = dispatch('prepare-native', sys.argv[1:], selected_platform=selected)
     if status is not None: raise SystemExit(status)
     (ROOT / '.native').mkdir(exist_ok=True)
     (ROOT / '.native/.gdignore').touch()
