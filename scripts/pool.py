@@ -68,6 +68,10 @@ def dispatch(mode, arguments, *, output=None, command=None, input_files=None, en
         names.pop('build/bazel-sdk', None)
     frontend = 'scripts/bazel/sdk.py' if mode == 'sdk' else 'scripts/pool.py'
     args = list(arguments) if mode == 'sdk' else [mode, *arguments]
+    if output is not None:
+        for index, argument in enumerate(args):
+            if argument == '--output' and index + 1 < len(args): args[index + 1] = str(Path(output).resolve())
+            elif argument.startswith('--output='): args[index] = '--output=' + str(Path(output).resolve())
     if output is not None and not any(a == '--output' or a.startswith('--output=') for a in args):
         args += ['--output', str(output)]
     addon = ROOT / 'examples/sdk-lab/addons'
