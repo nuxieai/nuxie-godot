@@ -81,6 +81,7 @@ def dispatch(mode, arguments, *, output=None, command=None, input_files=None, en
             or os.environ.get('NUXIE_EXECUTION') == 'local' or os.environ.get('NUXIE_CI_RUNNER_POLICY_VERSION') == '2' or '--help' in arguments or '-h' in arguments): return None
     if mode == 'gradle':
         tasks = gradle_tasks(arguments)
+        if any(task.lower().startswith('clean') for task in tasks): return None
         if any(value in ('-I', '--init-script', '-c', '--settings-file') or value.startswith(('--init-script=', '--settings-file=')) or (value.startswith(('-I', '-c')) and len(value) > 2) for value in arguments): return None
         # These explicitly address the caller's dependency cache or Maven home.
         if '--offline' in arguments or any(task.endswith('ToMavenLocal') for task in tasks): return None
