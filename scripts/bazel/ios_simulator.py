@@ -19,11 +19,13 @@ def version(value):
 def selection(devices, minimum_os):
     candidates = []
     for runtime in devices.get('runtimes', []):
+        if os.environ.get('NUXIE_IOS_SIMULATOR_RUNTIME') and runtime['identifier'] != os.environ['NUXIE_IOS_SIMULATOR_RUNTIME']: continue
         if not runtime.get('isAvailable') or '.iOS-' not in runtime['identifier']:
             continue
         if version(runtime['version']) < version(minimum_os):
             continue
         for device in runtime.get('supportedDeviceTypes', []):
+            if os.environ.get('NUXIE_IOS_SIMULATOR_DEVICE') and device['identifier'] != os.environ['NUXIE_IOS_SIMULATOR_DEVICE']: continue
             if device.get('productFamily') == 'iPhone' and device['name'].startswith('iPhone '):
                 natural_name = tuple((1, int(part)) if part.isdigit() else (0, part)
                                      for part in re.split(r'(\d+)', device['name']))
