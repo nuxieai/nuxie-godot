@@ -30,7 +30,7 @@ exports_files(["locks/bridge_maven_install.json", "locks/godot_maven_install.jso
 
 py_library(
     name = "sdk_tools",
-    srcs = ["sdk.py", "android_sdk.py", "native_prepare.py", "native_artifacts.py"],
+    srcs = ["sdk.py", "android_sdk.py", "native_prepare.py", "native_artifacts.py", "native_v3_fixture.py"],
     imports = ["."],
 )
 exports_files(["source_test_main.py"])

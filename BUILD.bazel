@@ -193,9 +193,9 @@ platform(name = "android_arm64", constraint_values = ["@platforms//os:android", 
 
 py_test(
     name = "source_tests",
-    srcs = ["tests/test_pack.py", "tests/test_xcframework_build.py", "//scripts/bazel:source_test_main.py"],
+    srcs = ["tests/test_pack.py", "tests/test_xcframework_build.py", "tests/test_pool.py", "//scripts/bazel:source_test_main.py"],
     main = "//scripts/bazel:source_test_main.py",
-    data = ["scripts/pack.py", "NATIVE-PINS.json"],
+    data = ["scripts/pack.py", "scripts/pool.py", "NATIVE-PINS.json"],
     deps = ["//scripts/bazel:sdk_tools"],
 )
 

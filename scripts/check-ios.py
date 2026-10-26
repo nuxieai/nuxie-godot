@@ -3,5 +3,10 @@
 from pathlib import Path
 import subprocess
 import sys
+import sys
+from pool import dispatch
+status = dispatch('check-ios', sys.argv[1:])
+if status is not None: raise SystemExit(status)
+
 root = Path(__file__).resolve().parent.parent
 subprocess.run([sys.executable, str(root / 'scripts/bazel/sdk.py'), 'test-ios'], cwd=root, check=True)

@@ -5,6 +5,10 @@ from pathlib import Path
 import shutil
 import sys
 
+from pool import dispatch
+status = dispatch('prepare-native', sys.argv[1:])
+if status is not None: raise SystemExit(status)
+
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / 'scripts/bazel'))
 from sdk import android_build, copy_maven, ios_xcframework
