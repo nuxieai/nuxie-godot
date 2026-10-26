@@ -53,11 +53,24 @@ def selection(mode, arguments, command=None, selected_platform=None):
     return ('macos' if apple else 'portable'), sorted(requirements)
 
 
+def gradle_tasks(arguments):
+    values = iter(arguments)
+    tasks = []
+    takes_value = {'-p', '--project-dir', '-g', '--gradle-user-home', '-I', '--init-script',
+                   '-c', '--settings-file', '-b', '--build-file', '-x', '--exclude-task',
+                   '--include-build', '--project-cache-dir', '--console', '--warning-mode',
+                   '--max-workers', '--priority', '--configuration-cache-problems'}
+    for value in values:
+        if value in takes_value: next(values, None)
+        elif not value.startswith('-'): tasks.append(value.rsplit(':', 1)[-1])
+    return tasks
+
+
 def dispatch(mode, arguments, *, output=None, command=None, input_files=None, environment=None, selected_platform=None):
     if (os.environ.get('_NUXIE_POOL_NESTED') == '1' or os.environ.get('NUXIE_HOMELAB') == '0'
             or os.environ.get('NUXIE_EXECUTION') == 'local' or os.environ.get('NUXIE_CI_RUNNER_POLICY_VERSION') == '2' or '--help' in arguments or '-h' in arguments): return None
     if mode == 'gradle':
-        tasks = [value.rsplit(':', 1)[-1] for value in arguments if not value.startswith('-')]
+        tasks = gradle_tasks(arguments)
         if (tasks and all(value == 'clean' for value in tasks)) or '--stop' in arguments: return None
     helper = Path.home() / '.local/share/nuxie-homelab/sdk-task.py'
     configured = (Path.home() / '.config/nuxie/homelab-cluster.json').is_file()
@@ -101,11 +114,8 @@ def dispatch(mode, arguments, *, output=None, command=None, input_files=None, en
                 args.append('--nuxie-pool-maven-repository=' + value)
             else:
                 selected = Path(unquote(uri.path) if uri.scheme == 'file' else value).expanduser().resolve(strict=True)
-                input_files = {**(input_files or {}), '.native/maven': selected}
-                args.append('--nuxie-pool-maven-repository=' + str(ROOT / '.native/maven'))
-        elif False:
-            input_files = {**(input_files or {}), '.native/maven': ROOT / 'ThirdParty/Android/maven'}
-            args.append('--nuxie-pool-maven-repository=' + str(ROOT / '.native/maven'))
+                input_files = {**(input_files or {}), '.nuxie/sdk-inputs/maven-repository': selected}
+                args.append('--nuxie-pool-maven-repository=' + str(selected))
     return module.route(ROOT, args, frontend=frontend, platform=platform,
                         requirements=requirements, outputs=names, input_files=input_files, environment=environment,
                         merge_outputs=[name for name in names if not (SDK == 'react-native' and name == 'dist')])
