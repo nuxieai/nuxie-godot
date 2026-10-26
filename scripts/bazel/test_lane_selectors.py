@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 class SelectorTests(unittest.TestCase):
     def fixture(self, root):
         (root / 'scripts/bazel').mkdir(parents=True)
-        for name in ('check.py', 'prepare-native.py'):
+        for name in ('check.py', 'prepare-native.py', 'pool.py'):
             shutil.copy2(ROOT / 'scripts' / name, root / 'scripts' / name)
         (root / 'NATIVE-PINS.json').write_text(json.dumps({'godot': '4.7.2'}))
         log = root / 'calls.jsonl'
@@ -46,7 +46,7 @@ def android_build(configuration):
 def copy_maven(manifest,destination): pass
 def ios_xcframework(configuration): record('ios',configuration)
 ''')
-        return log, dict(os.environ, PATH=str(tools) + os.pathsep + os.environ['PATH'], CALLS=str(log), GODOT_BIN=str(tools / 'godot'))
+        return log, dict(os.environ, PATH=str(tools) + os.pathsep + os.environ['PATH'], _NUXIE_POOL_NESTED='1', CALLS=str(log), GODOT_BIN=str(tools / 'godot'))
 
     def calls(self, path):
         return [json.loads(line) if line.startswith("[") else line.rstrip("\t").split("\t") for line in path.read_text().splitlines()]
