@@ -66,6 +66,16 @@ def gradle_tasks(arguments):
     return tasks
 
 
+def gradle_worker_arguments(arguments):
+    values = iter(arguments); result = []; workers = int(os.environ.get('NUXIE_BAZEL_CPU', '2'))
+    for value in values:
+        if value == '--max-workers': workers = min(workers, int(next(values)))
+        elif value.startswith('--max-workers='): workers = min(workers, int(value.split('=', 1)[1]))
+        elif value not in ('--daemon', '--no-daemon'): result.append(value)
+    if workers < 1: raise ValueError('Gradle worker count must be positive')
+    return [*result, '--no-daemon', '--max-workers=' + str(workers)]
+
+
 def dispatch(mode, arguments, *, output=None, command=None, input_files=None, environment=None, selected_platform=None):
     if (os.environ.get('_NUXIE_POOL_NESTED') == '1' or os.environ.get('NUXIE_HOMELAB') == '0'
             or os.environ.get('NUXIE_EXECUTION') == 'local' or os.environ.get('NUXIE_CI_RUNNER_POLICY_VERSION') == '2' or '--help' in arguments or '-h' in arguments): return None
@@ -100,11 +110,12 @@ def dispatch(mode, arguments, *, output=None, command=None, input_files=None, en
         input_files = dict(input_files or {})
         for name in ('.native/maven', 'addons/nuxie/android/bin'):
             if (ROOT / name).is_dir(): input_files[name] = ROOT / name
-        if not any(value in ('-p', '--project-dir') or value.startswith('--project-dir=') for value in args):
+        if not any(value in ('-p', '--project-dir') or value.startswith('--project-dir=') or (value.startswith('-p') and len(value) > 2) for value in args):
             args += ['--project-dir', str(Path.cwd().resolve())]
         for index, value in enumerate(args):
             if value in ('-p', '--project-dir') and index + 1 < len(args): args[index + 1] = str(Path(args[index + 1]).resolve())
             elif value.startswith('--project-dir='): args[index] = '--project-dir=' + str(Path(value.split('=',1)[1]).resolve())
+            elif value.startswith('-p') and len(value) > 2: args[index] = '--project-dir=' + str(Path(value[2:].removeprefix('=')).resolve())
     if mode == 'gradle':
         from urllib.parse import urlsplit, unquote
         value = os.environ.get('NUXIE_ANDROID_MAVEN_REPO')
@@ -132,7 +143,7 @@ def main():
     if mode == 'gradle':
         command = [str(ROOT / 'gradlew'), *arguments]
         if os.environ.get('_NUXIE_POOL_NESTED') == '1':
-            command += ['--no-daemon', '--max-workers=' + os.environ.get('NUXIE_BAZEL_CPU', '2')]
+            command = [str(ROOT / 'gradlew'), *gradle_worker_arguments(arguments)]
     elif SDK == 'react-native' and mode == 'check':
         # Dependencies belong to the selected host's disposable snapshot.
         subprocess.run(['pnpm', '--ignore-workspace', 'install', '--frozen-lockfile'], cwd=ROOT, check=True)
