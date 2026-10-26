@@ -21,11 +21,12 @@ class PoolRoutingTests(unittest.TestCase):
             home=Path(temp);repository=home/'external-maven';repository.mkdir()
             helper=home/'.local/share/nuxie-homelab/sdk-task.py';helper.parent.mkdir(parents=True)
             record=home/'record.json'
-            helper.write_text("import os,json\ndef route(root,args,**kwargs):\n open(os.environ['RECORD'],'w').write(json.dumps({'inputs':list(kwargs['input_files']),'outputs':list(kwargs['outputs'])}))\n return 17\n")
+            helper.write_text("import os,json\ndef route(root,args,**kwargs):\n open(os.environ['RECORD'],'w').write(json.dumps({'inputs':{k:str(v) for k,v in kwargs['input_files'].items()},'outputs':list(kwargs['outputs']),'args':args}))\n return 17\n")
             with patch.object(pool.Path,'home',return_value=home),patch.dict(os.environ,{'_NUXIE_POOL_NESTED':'0','NUXIE_HOMELAB':'1','NUXIE_EXECUTION':'pool','NUXIE_CI_RUNNER_POLICY_VERSION':'0','NUXIE_ANDROID_MAVEN_REPO':str(repository),'RECORD':str(record)}):
                 self.assertEqual(pool.dispatch('gradle',['lint']),17)
             result=json.loads(record.read_text());logical='.nuxie/sdk-inputs/maven-repository'
             self.assertIn(logical,result['inputs'])
+            self.assertEqual(result['inputs'][logical],str(repository.resolve()))
             self.assertFalse(any(logical==name or logical.startswith(name+'/') for name in result['outputs']))
 
     def test_declined_gradle_call_preserves_existing_worker_budget(self):
@@ -39,6 +40,18 @@ class PoolRoutingTests(unittest.TestCase):
             for arguments in (['lint','--max-workers=1'], ['--max-workers','1','lint']):
                 self.assertEqual(pool.gradle_worker_arguments(arguments),['lint','--no-daemon','--max-workers=1'])
             self.assertEqual(pool.gradle_worker_arguments(['lint','--max-workers=8']),['lint','--no-daemon','--max-workers=4'])
+
+    def test_attached_project_arguments_normalize_once(self):
+        import json
+        with tempfile.TemporaryDirectory() as temp:
+            home=Path(temp);helper=home/'.local/share/nuxie-homelab/sdk-task.py';helper.parent.mkdir(parents=True)
+            record=home/'record.json'
+            helper.write_text("from pathlib import Path\nimport os,json\ndef route(root,args,**kwargs):\n Path(os.environ['RECORD']).write_text(json.dumps(args))\n return 17\n")
+            with patch.object(pool.Path,'home',return_value=home),patch.dict(os.environ,{'_NUXIE_POOL_NESTED':'0','NUXIE_HOMELAB':'1','NUXIE_EXECUTION':'pool','NUXIE_CI_RUNNER_POLICY_VERSION':'0','RECORD':str(record)}):
+                for option in ('-pandroid-plugin', '-p=android-plugin'):
+                    self.assertEqual(pool.dispatch('gradle',[option,'lint']),17)
+                    arguments=json.loads(record.read_text())
+                    self.assertEqual(arguments,['gradle','--project-dir='+str((Path.cwd()/'android-plugin').resolve()),'lint'])
 
     def test_portable_and_platform_requirements(self):
         platform, tools = pool.selection('sdk', ['test'])
