@@ -6,8 +6,6 @@ import shutil
 import sys
 
 from pool import dispatch
-status = dispatch('prepare-native', sys.argv[1:])
-if status is not None: raise SystemExit(status)
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / 'scripts/bazel'))
@@ -18,6 +16,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--platform', choices=('all', 'android', 'ios'), default='all')
     selected = parser.parse_args().platform
+    status = dispatch('prepare-native', sys.argv[1:])
+    if status is not None: raise SystemExit(status)
     (ROOT / '.native').mkdir(exist_ok=True)
     (ROOT / '.native/.gdignore').touch()
     for configuration in ('Debug', 'Release'):
