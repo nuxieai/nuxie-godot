@@ -9,7 +9,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parent.parent
 SDK = 'godot'
-OUTPUTS = ['.native/artifacts', '.native/test-evidence', '.native/build', 'dist', '.native/maven', '.native/licenses', 'ios-plugin/.build/xcframework', 'addons/nuxie/android/bin', 'addons/nuxie/android/maven', 'addons/nuxie/ios', 'addons/nuxie/artifact-checksums.json']
+OUTPUTS = ['android-plugin/build/outputs', 'android-plugin/build/reports', 'android-plugin/build/test-results', '.native/artifacts', '.native/test-evidence', '.native/build', 'dist', '.native/maven', '.native/licenses', 'ios-plugin/.build/xcframework', 'addons/nuxie/android/bin', 'addons/nuxie/android/maven', 'addons/nuxie/ios', 'addons/nuxie/artifact-checksums.json']
 
 
 def selection(mode, arguments, command=None, selected_platform=None):
@@ -47,6 +47,8 @@ def selection(mode, arguments, command=None, selected_platform=None):
     if (mode == 'gradle' or (mode == 'check' and 'android' in requirements)
             or (SDK == 'android' and mode == 'sdk' and command in ('check', 'lint', 'api-check', 'providers'))):
         requirements.add('java17')
+    if mode == 'gradle':
+        apple = False; requirements = {'android', 'java17'}
     if apple: requirements.add('xcode')
     return ('macos' if apple else 'portable'), sorted(requirements)
 
@@ -78,6 +80,15 @@ def dispatch(mode, arguments, *, output=None, command=None, input_files=None, en
     addon = ROOT / 'examples/sdk-lab/addons'
     if mode == 'check' and addon.is_dir():
         input_files = {'examples/sdk-lab/addons': addon, **(input_files or {})}
+    if mode == 'gradle':
+        input_files = dict(input_files or {})
+        for name in ('.native/maven', 'addons/nuxie/android/bin'):
+            if (ROOT / name).is_dir(): input_files[name] = ROOT / name
+        if not any(value in ('-p', '--project-dir') or value.startswith('--project-dir=') for value in args):
+            args += ['--project-dir', str(Path.cwd().resolve())]
+        for index, value in enumerate(args):
+            if value in ('-p', '--project-dir') and index + 1 < len(args): args[index + 1] = str(Path(args[index + 1]).resolve())
+            elif value.startswith('--project-dir='): args[index] = '--project-dir=' + str(Path(value.split('=',1)[1]).resolve())
     return module.route(ROOT, args, frontend=frontend, platform=platform,
                         requirements=requirements, outputs=names, input_files=input_files, environment=environment,
                         merge_outputs=[name for name in names if not (SDK == 'react-native' and name == 'dist')])
