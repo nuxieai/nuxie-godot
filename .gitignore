@@ -29,3 +29,7 @@ __pycache__/
 /.bazel-cache.*.tmp
 /bazel-*
 /.bazel-*
+
+# Pool evidence belongs to this checkout, never to SDK source.
+/.nuxie/
+/scripts/__pycache__/

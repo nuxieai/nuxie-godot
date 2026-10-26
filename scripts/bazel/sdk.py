@@ -258,6 +258,14 @@ def main():
     parser.add_argument('command', choices=commands)
     parser.add_argument('--configuration', choices=['Debug', 'Release'], default='Release')
     args = parser.parse_args()
+    sys.path.insert(0, str(ROOT / 'scripts'))
+    from pool import dispatch
+    status = dispatch('sdk', sys.argv[1:])
+    if status is not None:
+        raise SystemExit(status)
+    if args.command == 'test-ios' and not os.environ.get('NUXIE_IOS_SIMULATOR_ID'):
+        from ios_simulator import run as with_simulator
+        raise SystemExit(with_simulator([sys.executable, str(Path(__file__)), *sys.argv[1:]]))
     if args.command in ('build', 'test'):
         labels = ['//:managed_test'] if SDK == 'unity' else ['//:source_tests' if SDK == 'godot' else '//:portable_tests']
         if args.command == 'build' and SDK == 'unity':
@@ -270,7 +278,11 @@ def main():
     elif args.command == 'test-android':
         android_build('Debug', True)
     else:
-        print(android_build(args.configuration)[0])
+        product = android_build(args.configuration)[0]
+        destination = ROOT / '.native/build/android' / product.name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(product, destination)
+        print(destination)
 
 
 if __name__ == '__main__':

@@ -38,6 +38,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--platform', choices=('all', 'portable', 'android', 'ios'), default='all')
     selected = parser.parse_args().platform
+    from pool import dispatch
+    status = dispatch('check', ['--platform', selected])
+    if status is not None: raise SystemExit(status)
     if selected in ('all', 'portable', 'android'):
         portable()
     if selected in ('all', 'android'):
