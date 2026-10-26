@@ -9,7 +9,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parent.parent
 SDK = 'godot'
-OUTPUTS = ['android-plugin/build/outputs', 'android-plugin/build/reports', 'android-plugin/build/test-results', '.native/artifacts', '.native/test-evidence', '.native/build', 'dist', '.native/maven', '.native/licenses', 'ios-plugin/.build/xcframework', 'addons/nuxie/android/bin', 'addons/nuxie/android/maven', 'addons/nuxie/ios', 'addons/nuxie/artifact-checksums.json']
+OUTPUTS = ['android-plugin/build/libs', 'build/libs', 'android-plugin/build/outputs', 'android-plugin/build/reports', 'android-plugin/build/test-results', '.native/artifacts', '.native/test-evidence', '.native/build', 'dist', '.native/maven', '.native/licenses', 'ios-plugin/.build/xcframework', 'addons/nuxie/android/bin', 'addons/nuxie/android/maven', 'addons/nuxie/ios', 'addons/nuxie/artifact-checksums.json']
 
 
 def selection(mode, arguments, command=None, selected_platform=None):
@@ -77,6 +77,7 @@ def gradle_worker_arguments(arguments):
 
 
 def caller_gradle_context(arguments):
+    if os.environ.get('GRADLE_USER_HOME'): return True
     # These options select caller-owned configuration, caches or persistent
     # daemon/watch operations, rather than the SDK's declared build inputs.
     local = {'--system-prop', '--init-script', '--settings-file', '--build-file', '--gradle-user-home',
