@@ -112,10 +112,14 @@ def dispatch(mode, arguments, *, output=None, command=None, input_files=None, en
             if (ROOT / name).is_dir(): input_files[name] = ROOT / name
         if not any(value in ('-p', '--project-dir') or value.startswith('--project-dir=') or (value.startswith('-p') and len(value) > 2) for value in args):
             args += ['--project-dir', str(Path.cwd().resolve())]
+        project_directory = Path.cwd().resolve()
         for index, value in enumerate(args):
-            if value in ('-p', '--project-dir') and index + 1 < len(args): args[index + 1] = str(Path(args[index + 1]).resolve())
-            elif value.startswith('--project-dir='): args[index] = '--project-dir=' + str(Path(value.split('=',1)[1]).resolve())
-            elif value.startswith('-p') and len(value) > 2: args[index] = '--project-dir=' + str(Path(value[2:].removeprefix('=')).resolve())
+            if value in ('-p', '--project-dir') and index + 1 < len(args):
+                project_directory = Path(args[index + 1]).resolve(); args[index + 1] = str(project_directory)
+            elif value.startswith('--project-dir='):
+                project_directory = Path(value.split('=',1)[1]).resolve(); args[index] = '--project-dir=' + str(project_directory)
+            elif value.startswith('-p') and len(value) > 2:
+                project_directory = Path(value[2:].removeprefix('=')).resolve(); args[index] = '--project-dir=' + str(project_directory)
     if mode == 'gradle':
         from urllib.parse import urlsplit, unquote
         value = os.environ.get('NUXIE_ANDROID_MAVEN_REPO')
@@ -124,7 +128,9 @@ def dispatch(mode, arguments, *, output=None, command=None, input_files=None, en
             if uri.scheme in ('https', 'http'):
                 args.append('--nuxie-pool-maven-repository=' + value)
             else:
-                selected = Path(unquote(uri.path) if uri.scheme == 'file' else value).expanduser().resolve(strict=True)
+                selected = Path(unquote(uri.path) if uri.scheme == 'file' else value).expanduser()
+                if not selected.is_absolute(): selected = project_directory / selected
+                selected = selected.resolve(strict=True)
                 input_files = {**(input_files or {}), '.nuxie/sdk-inputs/maven-repository': selected}
                 args.append('--nuxie-pool-maven-repository=' + str(selected))
     return module.route(ROOT, args, frontend=frontend, platform=platform,
