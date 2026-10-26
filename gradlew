@@ -39,7 +39,7 @@ SAVED="`pwd`"
 cd "`dirname \"$PRG\"`/" >/dev/null
 APP_HOME="`pwd -P`"
 cd "$SAVED" >/dev/null
-if [ "${_NUXIE_POOL_NESTED:-0}" != 1 ] && [ "${NUXIE_HOMELAB:-1}" != 0 ] && [ "${NUXIE_EXECUTION:-}" != local ] && [ -f "$HOME/.config/nuxie/homelab-cluster.json" ]; then
+if [ "${_NUXIE_POOL_NESTED:-0}" != 1 ] && [ "${NUXIE_HOMELAB:-1}" != 0 ] && [ "${NUXIE_EXECUTION:-}" != local ] && [ "${NUXIE_CI_RUNNER_POLICY_VERSION:-0}" != 2 ] && [ -f "$HOME/.config/nuxie/homelab-cluster.json" ]; then
     exec python3 "$APP_HOME/scripts/pool.py" gradle "$@"
 fi
 
