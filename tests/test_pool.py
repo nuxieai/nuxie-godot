@@ -15,6 +15,19 @@ class PoolRoutingTests(unittest.TestCase):
         with patch.dict(os.environ, {'_NUXIE_POOL_NESTED':'0','NUXIE_HOMELAB':'1','NUXIE_EXECUTION':'pool','NUXIE_CI_RUNNER_POLICY_VERSION':'0'}), patch.object(pool.Path, 'home', side_effect=AssertionError('cleanup remains local')):
             self.assertIsNone(pool.dispatch('gradle', ['-p', 'android-plugin', 'clean']))
 
+    def test_external_maven_repository_is_input_only(self):
+        import json
+        with tempfile.TemporaryDirectory() as temp:
+            home=Path(temp);repository=home/'external-maven';repository.mkdir()
+            helper=home/'.local/share/nuxie-homelab/sdk-task.py';helper.parent.mkdir(parents=True)
+            record=home/'record.json'
+            helper.write_text("import os,json\ndef route(root,args,**kwargs):\n open(os.environ['RECORD'],'w').write(json.dumps({'inputs':list(kwargs['input_files']),'outputs':list(kwargs['outputs'])}))\n return 17\n")
+            with patch.object(pool.Path,'home',return_value=home),patch.dict(os.environ,{'_NUXIE_POOL_NESTED':'0','NUXIE_HOMELAB':'1','NUXIE_EXECUTION':'pool','NUXIE_CI_RUNNER_POLICY_VERSION':'0','NUXIE_ANDROID_MAVEN_REPO':str(repository),'RECORD':str(record)}):
+                self.assertEqual(pool.dispatch('gradle',['lint']),17)
+            result=json.loads(record.read_text());logical='.nuxie/sdk-inputs/maven-repository'
+            self.assertIn(logical,result['inputs'])
+            self.assertFalse(any(logical==name or logical.startswith(name+'/') for name in result['outputs']))
+
     def test_portable_and_platform_requirements(self):
         platform, tools = pool.selection('sdk', ['test'])
         self.assertEqual(platform, 'portable')
