@@ -36,12 +36,14 @@ def portable():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--phase', choices=('portable', 'android', 'ios'))
     parser.add_argument('--platform', choices=('all', 'portable', 'android', 'ios'), default='all')
-    selected = parser.parse_args().platform
+    args = parser.parse_args()
+    selected = args.phase or args.platform
     from pool import dispatch
-    status = dispatch('check', ['--platform', selected])
+    status = dispatch('check', ['--phase' if args.phase else '--platform', selected])
     if status is not None: raise SystemExit(status)
-    if selected in ('all', 'portable', 'android'):
+    if selected == 'portable' or args.phase is None and selected in ('all', 'android'):
         portable()
     if selected in ('all', 'android'):
         run(['python3', 'scripts/bazel/sdk.py', 'test-android'])

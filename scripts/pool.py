@@ -12,7 +12,17 @@ SDK = 'godot'
 OUTPUTS = ['android-plugin/build/libs', 'build/libs', 'android-plugin/build/outputs', 'android-plugin/build/reports', 'android-plugin/build/test-results', '.native/artifacts', '.native/test-evidence', '.native/build', 'dist', '.native/maven', '.native/licenses', 'ios-plugin/.build/xcframework', 'addons/nuxie/android/bin', 'addons/nuxie/android/maven', 'addons/nuxie/ios', 'addons/nuxie/artifact-checksums.json']
 
 
+# Each full check is a sequence of independently placed, capability-declared phases.
+CHECK_PHASES = {'portable': ('portable', ['godot@4.7.2']), 'android': ('portable', ['android', 'java17']), 'ios': ('macos', ['xcode'])}
+
+
 def selection(mode, arguments, command=None, selected_platform=None):
+    if mode == 'check' and '--phase' in arguments:
+        index = arguments.index('--phase')
+        if index + 1 >= len(arguments) or arguments[index + 1] not in CHECK_PHASES:
+            raise ValueError('Unknown SDK check phase')
+        platform, requirements = CHECK_PHASES[arguments[index + 1]]
+        return platform, list(requirements)
     selected = 'android' if mode == 'prepare-native' and SDK in ('react-native', 'unity') else 'all'
     for i, arg in enumerate(arguments):
         if arg == '--platform' and i + 1 < len(arguments): selected = arguments[i + 1]
@@ -103,6 +113,13 @@ def dispatch(mode, arguments, *, output=None, command=None, input_files=None, en
         # These explicitly address the caller's dependency cache or Maven home.
         if '--offline' in arguments or any(task.endswith('ToMavenLocal') for task in tasks): return None
         if (tasks and all(value == 'clean' for value in tasks)) or '--stop' in arguments: return None
+    if mode == 'check' and selected_platform in (None, 'all') and arguments in ([], ['--platform', 'all'], ['--platform=all']):
+        for phase in CHECK_PHASES:
+            print('SDK check phase: ' + phase, file=sys.stderr, flush=True)
+            status = dispatch('check', ['--phase', phase], output=output, command=command,
+                              input_files=input_files, environment=environment)
+            if status is None or status != 0: return status
+        return 0
     helper = Path.home() / '.local/share/nuxie-homelab/sdk-task.py'
     configured = (Path.home() / '.config/nuxie/homelab-cluster.json').is_file()
     if not helper.is_file():
