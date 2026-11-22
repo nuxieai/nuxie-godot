@@ -178,7 +178,11 @@ Continue with the [API reference](docs/api-reference.md), [SDK Lab](examples/sdk
 ## Build pool
 
 With the homelab client configured, the existing SDK build/test frontends and
-readiness gate submit to the shared pool automatically. Portable work can use
+readiness gate submit to the shared pool automatically. A full readiness request
+is split into independently placed portable, Android and Apple phases.
+Portable checks run once; phases that consume build products prepare those
+products on their selected host. The ordinary full-check command retains all
+checks, and each phase returns its outputs before the next starts. Portable work can use
 Linux, WSL or macOS; Apple work selects a Mac, and engine checks require the
 pinned installed editor. Missing tools cause a refusal before execution.
 Running builds are not restarted when the client is updated.
